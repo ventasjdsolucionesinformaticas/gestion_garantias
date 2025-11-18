@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Garantías JD Soluciones v3.4</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+      .badge-pendiente { background:#f0ad4e; color:#000; }
+      .badge-resuelta { background:#5cb85c; color:#fff; }
+      .badge-rechazada { background:#d9534f; color:#fff; }
+    </style>
+  </head>
+  <body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-3">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="#">Garantías JD Soluciones</a>
+        <div class="d-flex">
+          <button class="btn btn-light me-2" id="btnExport" style="display:none">📤 Exportar</button>
+          <span id="navUser" class="text-white me-3"></span>
+          <button class="btn btn-outline-light" id="btnLogout" style="display:none">Cerrar sesión</button>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container" id="appGarantias" style="display:none">
+      <div class="row">
+        <div class="col-md-4">
+          <div class="card mb-3">
+            <div class="card-body">
+              <h5 class="card-title">Registrar nueva garantía</h5>
+              <form id="formGarantia">
+                <div class="mb-2"><label>Cliente</label><input id="cliente" class="form-control" required></div>
+                <div class="mb-2"><label>Producto</label><input id="producto" class="form-control" required></div>
+                <div class="mb-2"><label>Factura</label><input id="factura" class="form-control"></div>
+                <div class="mb-2"><label>Fecha compra</label><input id="fecha_compra" type="date" class="form-control"></div>
+                <div class="mb-2"><label>Fallo</label><textarea id="descripcion_falla" class="form-control"></textarea></div>
+                <div class="mb-2"><label>Imagen (opcional)</label><input id="imagen" type="file" class="form-control"></div>
+                <button class="btn btn-primary">Registrar</button><span id="msg" class="ms-2"></span>
+              </form>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-8">
+          <div class="card">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="card-title">Listado de garantías</h5>
+                <div>
+                  <select id="filtroEstado" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option value="Pendiente">Pendiente</option>
+                    <option value="En gestión">En gestión</option>
+                    <option value="Resuelta">Resuelta</option>
+                    <option value="Rechazada">Rechazada</option>
+                  </select>
+                </div>
+              </div>
+              <div class="table-responsive" style="max-height:60vh; overflow:auto">
+                <table class="table table-striped" id="tablaGarantias">
+                  <thead><tr><th>ID</th><th>Cliente</th><th>Producto</th><th>Falla</th><th>Estado</th><th>Acciones</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Login modal on load -->
+    <div class="modal show" id="loginModal" tabindex="-1" style="display:block; background: rgba(0,0,0,0.4)">
+      <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title">Ingresar</h5></div>
+          <div class="modal-body">
+            <form id="formLogin">
+              <div class="mb-2"><label>Usuario</label><input id="login_user" class="form-control" required></div>
+              <div class="mb-2"><label>Contraseña</label><input id="login_pass" type="password" class="form-control" required></div>
+              <div class="d-grid"><button class="btn btn-primary">Entrar</button></div>
+              <div id="loginMsg" class="mt-2"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail modal (hidden) -->
+    <div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title">Detalle</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <div id="detailBody"></div>
+            <hr>
+            <h6>Comentarios</h6>
+            <ul id="comentariosList" class="list-group mb-2"></ul>
+            <form id="formComentario" class="mb-2">
+              <div class="mb-2"><textarea id="comentario_text" class="form-control" rows="3" placeholder="Agregar comentario..."></textarea></div>
+              <div class="mb-2"><input id="comentario_file" type="file" class="form-control"></div>
+              <div class="d-flex justify-content-between">
+                <select id="cambiar_estado" class="form-select" style="width:200px"><option value="Pendiente">Pendiente</option><option value="En gestión">En gestión</option><option value="Resuelta">Resuelta</option><option value="Rechazada">Rechazada</option></select>
+                <div><button type="button" id="btnAddComment" class="btn btn-primary">Agregar comentario</button> <button type="button" id="btnChangeState" class="btn btn-secondary">Cambiar estado</button></div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      let token = null, usuario=null, rol=null;
+      const loginModalEl = document.getElementById('loginModal');
+      const detailModalEl = document.getElementById('detailModal');
+      const detailModal = new bootstrap.Modal(detailModalEl, { keyboard: true });
+
+      function showSection(name){
+        document.getElementById('appGarantias').style.display = (name==='garantias') ? 'block':'none';
+      }
+
+      async function api(path, opts={}) {
+        opts.headers = opts.headers || {};
+        if(token) opts.headers['token'] = token;
+        const res = await fetch('/api'+path, opts);
+        if(res.status===401){ alert('Sesión expirada o token inválido'); location.reload(); }
+        return res;
+      }
+
+      // login
+      document.getElementById('formLogin').addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const u=document.getElementById('login_user').value, p=document.getElementById('login_pass').value;
+        const r=await fetch('/api/login',{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username:u,password:p})});
+        if(!r.ok){ document.getElementById('loginMsg').textContent='Credenciales inválidas'; return; }
+        const j=await r.json(); token=j.token; usuario=j.username; rol=j.rol;
+        sessionStorage.setItem('token',token); sessionStorage.setItem('usuario',usuario); sessionStorage.setItem('rol',rol);
+        document.getElementById('navUser').textContent = usuario + ' ('+rol+')';
+        document.getElementById('btnLogout').style.display='inline-block';
+        document.getElementById('loginModal').style.display='none';
+        if(rol==='admin'){ document.getElementById('btnExport').style.display='inline-block'; }
+        document.getElementById('appGarantias').style.display='block';
+        cargarGarantias();
+      });
+
+      window.addEventListener('load', ()=>{
+        const t=sessionStorage.getItem('token');
+        if(t){ token=t; usuario=sessionStorage.getItem('usuario'); rol=sessionStorage.getItem('rol');
+          document.getElementById('navUser').textContent = usuario + ' ('+rol+')';
+          document.getElementById('btnLogout').style.display='inline-block';
+          if(rol==='admin'){ document.getElementById('btnExport').style.display='inline-block'; }
+          document.getElementById('loginModal').style.display='none';
+          document.getElementById('appGarantias').style.display='block';
+          cargarGarantias();
+        }
+      });
+
+      document.getElementById('btnLogout').addEventListener('click', ()=>{ sessionStorage.clear(); location.reload(); });
+
+      // export
+      document.getElementById('btnExport').addEventListener('click', async ()=>{
+        const res = await api('/garantias/export'); if(!res.ok) return alert('Error al exportar');
+        const blob = await res.blob(); const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'garantias_export.xlsx'; document.body.appendChild(a); a.click(); a.remove();
+      });
+
+      // create garantia
+      document.getElementById('formGarantia').addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const fd = new FormData();
+        fd.append('cliente', document.getElementById('cliente').value);
+        fd.append('producto', document.getElementById('producto').value);
+        fd.append('factura', document.getElementById('factura').value);
+        fd.append('fecha_compra', document.getElementById('fecha_compra').value);
+        fd.append('descripcion_falla', document.getElementById('descripcion_falla').value);
+        const file = document.getElementById('imagen').files[0]; if(file) fd.append('imagen', file);
+        const res = await api('/garantias', {method:'POST', body: fd});
+        if(res.ok){ document.getElementById('msg').textContent='Guardado'; document.getElementById('formGarantia').reset(); cargarGarantias(); setTimeout(()=>document.getElementById('msg').textContent='',2000); }
+        else document.getElementById('msg').textContent='Error';
+      });
+
+      async function cargarGarantias(){
+        const res = await api('/garantias'); const data = await res.json();
+        const filtro = document.getElementById('filtroEstado').value;
+        const tbody = document.querySelector('#tablaGarantias tbody'); tbody.innerHTML='';
+        data.filter(g => !filtro || g.estado === filtro).forEach(g=>{
+          const tr = document.createElement('tr');
+          let badge = '<span class="badge badge-pendiente">Pendiente</span>';
+          if(g.estado==='Resuelta' || g.estado==='Resuelta') badge = '<span class="badge badge-resuelta">Resuelta</span>';
+          if(g.estado==='Rechazada') badge = '<span class="badge badge-rechazada">Rechazada</span>';
+          if(g.estado==='En gestión') badge = '<span class="badge badge-pendiente">En gestión</span>';
+          tr.innerHTML = `<td>${g.id}</td><td>${g.cliente}</td><td>${g.producto}</td><td>${g.descripcion_falla||''}</td><td>${badge}</td><td><button class="btn btn-sm btn-outline-primary" onclick="verDetalle(${g.id})">Ver</button> <button class="btn btn-sm btn-outline-success" onclick="abrirComentario(${g.id})">Comentar</button></td>`;
+          tbody.appendChild(tr);
+        });
+      }
+
+      document.getElementById('filtroEstado').addEventListener('change', cargarGarantias);
+
+      // cargar comentarios
+      async function cargarComentarios(gid){
+        const rc = await api(`/garantias/${gid}/comentarios`); const comments = await rc.json();
+        const clist = document.getElementById('comentariosList'); clist.innerHTML='';
+        comments.forEach(c=>{
+          const li = document.createElement('li'); li.className='list-group-item';
+          li.innerHTML = `<strong>${c.usuario}</strong> <small class="text-muted">${new Date(c.fecha).toLocaleString()}</small><div>${c.texto}</div>${c.attachment_path?`<div><a href='${c.attachment_path}' target='_blank'>Adjunto</a></div>`:''}`;
+          clist.appendChild(li);
+        });
+      }
+
+      // ver detalle (muestra modal una vez)
+      async function verDetalle(id){
+        const res = await api('/garantias'); const data = await res.json();
+        const g = data.find(x=>x.id===id);
+        if(!g) return alert('No encontrado');
+        document.getElementById('detailBody').innerHTML = `<p><strong>ID:</strong> ${g.id}</p><p><strong>Cliente:</strong> ${g.cliente}</p><p><strong>Producto:</strong> ${g.producto}</p><p><strong>Falla:</strong> ${g.descripcion_falla||''}</p><p><strong>Estado:</strong> <span id="estadoDetalle">${g.estado}</span></p>${g.imagen_path?`<p><a href='${g.imagen_path}' target='_blank'>Ver imagen</a></p>`:''}`;
+        await cargarComentarios(id);
+        detailModalEl.dataset.gid = id;
+        document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+        detailModal.show();
+      }
+
+      // abrirComentario simplemente muestra modal y deja dataset; action handlers son únicos
+      function abrirComentario(gid){
+        verDetalle(gid);
+      }
+
+      // handler único para agregar comentario
+      document.getElementById('btnAddComment').addEventListener('click', async ()=>{
+        const gid = detailModalEl.dataset.gid;
+        if(!gid) return;
+        const txt = document.getElementById('comentario_text').value.trim();
+        if(!txt) return alert('Ingrese un comentario');
+        const fd = new FormData();
+        fd.append('texto', txt);
+        const f = document.getElementById('comentario_file').files[0]; if(f) fd.append('archivo', f);
+        const res = await api(`/garantias/${gid}/comentarios`, {method:'POST', body: fd});
+        if(res.ok){ document.getElementById('comentario_text').value=''; document.getElementById('comentario_file').value=''; await cargarComentarios(gid); cargarGarantias(); } else { const j=await res.json().catch(()=>({detail:'error'})); alert(j.detail||'Error al agregar comentario'); }
+      });
+
+      // handler único para cambiar estado
+      document.getElementById('btnChangeState').addEventListener('click', async ()=>{
+        const gid = detailModalEl.dataset.gid; if(!gid) return;
+        const nuevo = document.getElementById('cambiar_estado').value;
+        const fd = new FormData(); fd.append('estado', nuevo);
+        const res = await api(`/garantias/${gid}/estado`, {method:'PATCH', body: fd});
+        if(res.ok){ document.getElementById('estadoDetalle').innerText = nuevo; cargarGarantias(); } else { const j=await res.json().catch(()=>({detail:'error'})); alert(j.detail||'Error al cambiar estado'); }
+      });
+    </script>
+  </body>
+</html>
