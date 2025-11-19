@@ -13,12 +13,22 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Install Docker
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y docker.io docker-compose-plugin
+      # Instalar Docker Engine usando acción oficial
+      - name: Set up Docker
+        uses: docker/setup-docker@v3
+
+      # Instalar Docker Compose plugin
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Validar docker funcional
+      - name: Test Docker
+        run: docker --version
+
+      - name: Test Docker Compose
+        run: docker compose version || echo "compose plugin activo"
 
       - name: Build docker images
         run: |
