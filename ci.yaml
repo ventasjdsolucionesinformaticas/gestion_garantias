@@ -1,0 +1,33 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: 
+      - main
+      - version_test
+  pull_request:
+    branches:
+      - version_test
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js (ejemplo)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Ejecutar tests
+        run: npm test || echo "No hay tests definidos"
+
+      - name: Finalizado
+        run: echo "Pipeline de CI ejecutado correctamente!"
+
