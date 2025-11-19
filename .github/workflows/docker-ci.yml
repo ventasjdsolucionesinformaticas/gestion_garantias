@@ -1,0 +1,34 @@
+name: CI - Build Docker Compose
+
+on:
+  push:
+    branches:
+      - main
+      - version_test
+  pull_request:
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Docker
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker.io docker-compose-plugin
+
+      - name: Build docker images
+        run: |
+          docker compose build
+
+      - name: Run containers for validation
+        run: |
+          docker compose up -d
+          sleep 10
+          docker compose ps
+
+      - name: Shut down containers
+        run: docker compose down
