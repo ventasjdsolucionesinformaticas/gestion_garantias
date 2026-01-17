@@ -1,0 +1,33 @@
+# Base de datos
+data/*.db
+data/*.db-*
+
+# Archivos temporales
+*.tmp
+*.temp
+
+# Archivos de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Archivos temporales de desarrollo
+app/reset_admin.py
+
+# Logs
+*.log
+logs/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore

@@ -28,6 +28,10 @@ def get_db():
     finally:
         db.close()
 
+@app.get("/")
+def read_root():
+    return FileResponse("static/index.html", media_type="text/html")
+
 class LoginIn(BaseModel):
     username: str
     password: str
