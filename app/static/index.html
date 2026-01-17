@@ -66,6 +66,46 @@
           </div>
         </div>
       </div>
+
+      <!-- Gestión de Usuarios (solo admin) -->
+      <div id="adminPanel" style="display:none">
+        <hr>
+        <h4>👥 Gestión de Usuarios</h4>
+        <div class="row">
+          <div class="col-md-4">
+            <div class="card mb-3">
+              <div class="card-body">
+                <h5 class="card-title">Crear nuevo usuario</h5>
+                <form id="formUsuario">
+                  <div class="mb-2"><label>Usuario</label><input id="nuevo_username" class="form-control" required></div>
+                  <div class="mb-2"><label>Contraseña</label><input id="nuevo_password" type="password" class="form-control" required></div>
+                  <div class="mb-2"><label>Rol</label>
+                    <select id="nuevo_rol" class="form-control" required>
+                      <option value="tecnico">Técnico</option>
+                      <option value="consulta">Consulta</option>
+                    </select>
+                  </div>
+                  <button type="submit" class="btn btn-success">Crear Usuario</button>
+                  <span id="msgUsuario" class="ms-2"></span>
+                </form>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-8">
+            <div class="card">
+              <div class="card-body">
+                <h5 class="card-title">Usuarios del sistema</h5>
+                <div class="table-responsive" style="max-height:40vh; overflow:auto">
+                  <table class="table table-striped" id="tablaUsuarios">
+                    <thead><tr><th>ID</th><th>Usuario</th><th>Rol</th><th>Fecha Creación</th><th>Acciones</th></tr></thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </main>
 
     <!-- Login modal on load -->
@@ -108,6 +148,43 @@
       </div>
     </div>
 
+    <!-- Modal Editar Usuario -->
+    <div class="modal fade" id="editUserModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Editar Usuario</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <form id="formEditUsuario">
+              <div class="mb-2">
+                <label>Usuario</label>
+                <input id="edit_username" class="form-control" required>
+              </div>
+              <div class="mb-2">
+                <label>Nueva Contraseña (dejar vacío para mantener actual)</label>
+                <input id="edit_password" type="password" class="form-control">
+              </div>
+              <div class="mb-2">
+                <label>Rol</label>
+                <select id="edit_rol" class="form-control" required>
+                  <option value="consulta">Consulta</option>
+                  <option value="tecnico">Técnico</option>
+                  <option value="admin">Administrador</option>
+                </select>
+              </div>
+              <div class="d-flex justify-content-between">
+                <button type="submit" class="btn btn-primary">Actualizar</button>
+                <button type="button" id="btnDeleteUser" class="btn btn-danger">Eliminar Usuario</button>
+              </div>
+              <div id="editUserMsg" class="mt-2"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
       let token = null, usuario=null, rol=null;
@@ -138,7 +215,11 @@
         document.getElementById('navUser').textContent = usuario + ' ('+rol+')';
         document.getElementById('btnLogout').style.display='inline-block';
         document.getElementById('loginModal').style.display='none';
-        if(rol==='admin'){ document.getElementById('btnExport').style.display='inline-block'; }
+        if(rol==='admin'){ 
+          document.getElementById('btnExport').style.display='inline-block';
+          document.getElementById('adminPanel').style.display='block';
+          cargarUsuarios();
+        }
         document.getElementById('appGarantias').style.display='block';
         cargarGarantias();
       });
@@ -148,7 +229,11 @@
         if(t){ token=t; usuario=sessionStorage.getItem('usuario'); rol=sessionStorage.getItem('rol');
           document.getElementById('navUser').textContent = usuario + ' ('+rol+')';
           document.getElementById('btnLogout').style.display='inline-block';
-          if(rol==='admin'){ document.getElementById('btnExport').style.display='inline-block'; }
+          if(rol==='admin'){ 
+            document.getElementById('btnExport').style.display='inline-block';
+            document.getElementById('adminPanel').style.display='block';
+            cargarUsuarios();
+          }
           document.getElementById('loginModal').style.display='none';
           document.getElementById('appGarantias').style.display='block';
           cargarGarantias();
@@ -244,6 +329,96 @@
         const fd = new FormData(); fd.append('estado', nuevo);
         const res = await api(`/garantias/${gid}/estado`, {method:'PATCH', body: fd});
         if(res.ok){ document.getElementById('estadoDetalle').innerText = nuevo; cargarGarantias(); } else { const j=await res.json().catch(()=>({detail:'error'})); alert(j.detail||'Error al cambiar estado'); }
+      });
+
+      // Gestión de Usuarios (solo admin)
+      async function cargarUsuarios(){
+        const res = await api('/usuarios');
+        if(res.ok){
+          const users = await res.json();
+          const tbody = document.querySelector('#tablaUsuarios tbody');
+          tbody.innerHTML = '';
+          users.forEach(u => {
+            const tr = document.createElement('tr');
+            const acciones = u.username === 'admin' ? 
+              '<span class="text-muted">Admin principal</span>' : 
+              `<button class="btn btn-sm btn-warning me-1" onclick="editarUsuario(${u.id}, '${u.username}', '${u.rol}')">✏️</button><button class="btn btn-sm btn-danger" onclick="eliminarUsuario(${u.id}, '${u.username}')">🗑️</button>`;
+            tr.innerHTML = `<td>${u.id}</td><td>${u.username}</td><td>${u.rol}</td><td>${new Date(u.fecha_creacion).toLocaleDateString()}</td><td>${acciones}</td>`;
+            tbody.appendChild(tr);
+          });
+        }
+      }
+
+      document.getElementById('formUsuario').addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const username = document.getElementById('nuevo_username').value;
+        const password = document.getElementById('nuevo_password').value;
+        const rol = document.getElementById('nuevo_rol').value;
+        
+        const res = await api('/usuarios', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({username, password, rol})
+        });
+        
+        const msgEl = document.getElementById('msgUsuario');
+        if(res.ok){
+          msgEl.innerHTML = '<span class="text-success">Usuario creado exitosamente</span>';
+          document.getElementById('formUsuario').reset();
+          cargarUsuarios();
+        } else {
+          const j = await res.json().catch(()=>({detail:'Error desconocido'}));
+          msgEl.innerHTML = `<span class="text-danger">${j.detail}</span>`;
+        }
+      });
+
+      // Funciones de gestión de usuarios
+      function editarUsuario(id, username, rol){
+        document.getElementById('edit_username').value = username;
+        document.getElementById('edit_password').value = '';
+        document.getElementById('edit_rol').value = rol;
+        document.getElementById('formEditUsuario').dataset.userId = id;
+        new bootstrap.Modal(document.getElementById('editUserModal')).show();
+      }
+
+      async function eliminarUsuario(id, username){
+        if(!confirm(`¿Estás seguro de eliminar al usuario "${username}"?`)) return;
+        
+        const res = await api(`/usuarios/${id}`, {method: 'DELETE'});
+        if(res.ok){
+          alert('Usuario eliminado exitosamente');
+          cargarUsuarios();
+        } else {
+          const j = await res.json().catch(()=>({detail:'Error desconocido'}));
+          alert(`Error: ${j.detail}`);
+        }
+      }
+
+      document.getElementById('formEditUsuario').addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const userId = e.target.dataset.userId;
+        const username = document.getElementById('edit_username').value;
+        const password = document.getElementById('edit_password').value;
+        const rol = document.getElementById('edit_rol').value;
+        
+        const updateData = {username, rol};
+        if(password) updateData.password = password;
+        
+        const res = await api(`/usuarios/${userId}`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(updateData)
+        });
+        
+        const msgEl = document.getElementById('editUserMsg');
+        if(res.ok){
+          msgEl.innerHTML = '<span class="text-success">Usuario actualizado exitosamente</span>';
+          bootstrap.Modal.getInstance(document.getElementById('editUserModal')).hide();
+          cargarUsuarios();
+        } else {
+          const j = await res.json().catch(()=>({detail:'Error desconocido'}));
+          msgEl.innerHTML = `<span class="text-danger">${j.detail}</span>`;
+        }
       });
     </script>
   </body>

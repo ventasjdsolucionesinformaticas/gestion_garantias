@@ -41,6 +41,11 @@ class UsuarioIn(BaseModel):
     password: str
     rol: str = "tecnico"
 
+class UsuarioUpdate(BaseModel):
+    username: Optional[str] = None
+    password: Optional[str] = None
+    rol: Optional[str] = None
+
 # init admin
 def init_admin():
     db = SessionLocal()
@@ -97,6 +102,69 @@ def crear_usuario(u: UsuarioIn, token: str = Header(None), db: Session = Depends
         db.rollback()
         raise HTTPException(status_code=400, detail="Usuario ya existe")
     return {"mensaje": "Usuario creado"}
+
+@app.put("/api/usuarios/{user_id}")
+def actualizar_usuario(user_id: int, u: UsuarioUpdate, token: str = Header(None), db: Session = Depends(get_db)):
+    username = verify_token(token)
+    dbuser = db.query(Usuario).filter(Usuario.username==username).first()
+    if not dbuser or dbuser.rol != "admin":
+        raise HTTPException(status_code=403, detail="Solo admin puede actualizar usuarios")
+    
+    usuario = db.query(Usuario).filter(Usuario.id == user_id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    # No permitir cambiar el rol del admin principal
+    if usuario.username == "admin" and u.rol and u.rol != "admin":
+        raise HTTPException(status_code=400, detail="No se puede cambiar el rol del administrador principal")
+    
+    from passlib.context import CryptContext
+    pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+    
+    if u.username:
+        # Verificar que el nuevo username no exista
+        existing = db.query(Usuario).filter(Usuario.username == u.username, Usuario.id != user_id).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="El nombre de usuario ya existe")
+        usuario.username = u.username
+    
+    if u.password:
+        usuario.password_hash = pwd_context.hash(u.password)
+    
+    if u.rol:
+        usuario.rol = u.rol
+    
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Error al actualizar usuario")
+    
+    return {"mensaje": "Usuario actualizado"}
+
+@app.delete("/api/usuarios/{user_id}")
+def eliminar_usuario(user_id: int, token: str = Header(None), db: Session = Depends(get_db)):
+    username = verify_token(token)
+    dbuser = db.query(Usuario).filter(Usuario.username==username).first()
+    if not dbuser or dbuser.rol != "admin":
+        raise HTTPException(status_code=403, detail="Solo admin puede eliminar usuarios")
+    
+    usuario = db.query(Usuario).filter(Usuario.id == user_id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    # No permitir eliminar el admin principal
+    if usuario.username == "admin":
+        raise HTTPException(status_code=400, detail="No se puede eliminar el administrador principal")
+    
+    db.delete(usuario)
+    try:
+        db.commit()
+    except:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Error al eliminar usuario")
+    
+    return {"mensaje": "Usuario eliminado"}
 
 # GARANTIAS
 @app.post("/api/garantias")
