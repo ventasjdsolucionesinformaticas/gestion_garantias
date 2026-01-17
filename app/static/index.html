@@ -36,6 +36,21 @@
                 <div class="mb-2"><label>Fecha compra</label><input id="fecha_compra" type="date" class="form-control"></div>
                 <div class="mb-2"><label>Fallo</label><textarea id="descripcion_falla" class="form-control"></textarea></div>
                 <div class="mb-2"><label>Imagen (opcional)</label><input id="imagen" type="file" class="form-control"></div>
+                <div class="mb-3">
+                  <label>Opciones de registro:</label>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="opcionRegistro" id="soloRegistrar" value="solo" checked>
+                    <label class="form-check-label" for="soloRegistrar">
+                      Solo registrar garantía
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="opcionRegistro" id="registrarImprimir" value="imprimir">
+                    <label class="form-check-label" for="registrarImprimir">
+                      Registrar e imprimir recibo
+                    </label>
+                  </div>
+                </div>
                 <button class="btn btn-primary">Registrar</button><span id="msg" class="ms-2"></span>
               </form>
             </div>
@@ -140,7 +155,7 @@
               <div class="mb-2"><input id="comentario_file" type="file" class="form-control"></div>
               <div class="d-flex justify-content-between">
                 <select id="cambiar_estado" class="form-select" style="width:200px"><option value="Pendiente">Pendiente</option><option value="En gestión">En gestión</option><option value="Resuelta">Resuelta</option><option value="Rechazada">Rechazada</option></select>
-                <div><button type="button" id="btnAddComment" class="btn btn-primary">Agregar comentario</button> <button type="button" id="btnChangeState" class="btn btn-secondary">Cambiar estado</button></div>
+                <div><button type="button" id="btnPrintRecibo" class="btn btn-info me-2">🖨️ Imprimir Recibo</button><button type="button" id="btnAddComment" class="btn btn-primary me-2">Agregar comentario</button> <button type="button" id="btnChangeState" class="btn btn-secondary">Cambiar estado</button></div>
               </div>
             </form>
           </div>
@@ -259,8 +274,48 @@
         fd.append('fecha_compra', document.getElementById('fecha_compra').value);
         fd.append('descripcion_falla', document.getElementById('descripcion_falla').value);
         const file = document.getElementById('imagen').files[0]; if(file) fd.append('imagen', file);
+        const opcionRegistro = document.querySelector('input[name="opcionRegistro"]:checked').value;
+        
         const res = await api('/garantias', {method:'POST', body: fd});
-        if(res.ok){ document.getElementById('msg').textContent='Guardado'; document.getElementById('formGarantia').reset(); cargarGarantias(); setTimeout(()=>document.getElementById('msg').textContent='',2000); }
+        if(res.ok){
+          document.getElementById('msg').textContent='Guardado';
+          document.getElementById('formGarantia').reset();
+          cargarGarantias();
+          
+          // Si se seleccionó imprimir, descargar el PDF de la garantía recién creada
+          if(opcionRegistro === 'imprimir'){
+            // Pequeña pausa para asegurar que la garantía se guardó
+            setTimeout(async ()=>{
+              try {
+                // Obtener la lista actualizada de garantías para encontrar la última
+                const resGarantias = await api('/garantias');
+                if(resGarantias.ok){
+                  const garantias = await resGarantias.json();
+                  if(garantias.length > 0){
+                    // La última garantía es la más reciente (asumiendo orden por ID)
+                    const ultimaGarantia = garantias[garantias.length - 1];
+                    const resPdf = await api(`/garantias/${ultimaGarantia.id}/pdf`);
+                    if(resPdf.ok){
+                      const blob = await resPdf.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `recibo_garantia_${ultimaGarantia.id}.pdf`;
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                      URL.revokeObjectURL(url);
+                    }
+                  }
+                }
+              } catch(err){
+                console.error('Error al descargar PDF:', err);
+              }
+            }, 500);
+          }
+          
+          setTimeout(()=>document.getElementById('msg').textContent='',2000);
+        }
         else document.getElementById('msg').textContent='Error';
       });
 
@@ -274,7 +329,7 @@
           if(g.estado==='Resuelta' || g.estado==='Resuelta') badge = '<span class="badge badge-resuelta">Resuelta</span>';
           if(g.estado==='Rechazada') badge = '<span class="badge badge-rechazada">Rechazada</span>';
           if(g.estado==='En gestión') badge = '<span class="badge badge-pendiente">En gestión</span>';
-          tr.innerHTML = `<td>${g.id}</td><td>${g.cliente}</td><td>${g.producto}</td><td>${g.descripcion_falla||''}</td><td>${badge}</td><td><button class="btn btn-sm btn-outline-primary" onclick="verDetalle(${g.id})">Ver</button> <button class="btn btn-sm btn-outline-success" onclick="abrirComentario(${g.id})">Comentar</button></td>`;
+          tr.innerHTML = `<td>${g.id}</td><td>${g.cliente}</td><td>${g.producto}</td><td>${g.descripcion_falla||''}</td><td>${badge}</td><td><button class="btn btn-sm btn-outline-primary" onclick="verDetalle(${g.id})">Ver</button> <button class="btn btn-sm btn-outline-success" onclick="abrirComentario(${g.id})">Comentar</button> <button class="btn btn-sm btn-outline-info" onclick="imprimirRecibo(${g.id})">🖨️</button></td>`;
           tbody.appendChild(tr);
         });
       }
@@ -330,6 +385,54 @@
         const res = await api(`/garantias/${gid}/estado`, {method:'PATCH', body: fd});
         if(res.ok){ document.getElementById('estadoDetalle').innerText = nuevo; cargarGarantias(); } else { const j=await res.json().catch(()=>({detail:'error'})); alert(j.detail||'Error al cambiar estado'); }
       });
+
+      // handler para imprimir recibo
+      document.getElementById('btnPrintRecibo').addEventListener('click', async ()=>{
+        const gid = detailModalEl.dataset.gid; if(!gid) return;
+        try {
+          const res = await api(`/garantias/${gid}/recibo`);
+          if(res.ok){
+            // Crear un blob con el PDF y descargarlo
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `recibo_garantia_${gid}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+          } else {
+            const j = await res.json().catch(()=>({detail:'Error desconocido'}));
+            alert(`Error al generar recibo: ${j.detail}`);
+          }
+        } catch (error) {
+          alert('Error al descargar el recibo');
+        }
+      });
+
+      // Función para imprimir recibo desde la tabla
+      async function imprimirRecibo(gid) {
+        try {
+          const res = await api(`/garantias/${gid}/recibo`);
+          if(res.ok){
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `recibo_garantia_${gid}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+          } else {
+            const j = await res.json().catch(()=>({detail:'Error desconocido'}));
+            alert(`Error al generar recibo: ${j.detail}`);
+          }
+        } catch (error) {
+          alert('Error al descargar el recibo');
+        }
+      }
 
       // Gestión de Usuarios (solo admin)
       async function cargarUsuarios(){

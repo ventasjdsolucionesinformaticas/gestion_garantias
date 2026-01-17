@@ -33,3 +33,15 @@ class Usuario(Base):
     password_hash = Column(String, nullable=False)
     rol = Column(String, nullable=False, default="consulta")
     fecha_creacion = Column(DateTime, default=datetime.utcnow)
+
+class ConfiguracionEmpresa(Base):
+    __tablename__ = "configuracion_empresa"
+    id = Column(Integer, primary_key=True, index=True)
+    nombre_empresa = Column(String, nullable=False, default="JD Soluciones")
+    telefono = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    direccion = Column(Text, nullable=True)
+    ciudad = Column(String, nullable=True)
+    nit = Column(String, nullable=True)
+    logo_path = Column(String, nullable=True)
+    fecha_actualizacion = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

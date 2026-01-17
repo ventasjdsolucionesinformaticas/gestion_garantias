@@ -31,3 +31,7 @@ Thumbs.db
 
 # Docker
 .dockerignore
+
+# Archivos de aplicación (uploads e exports)
+app/uploads/
+data/*.xlsx

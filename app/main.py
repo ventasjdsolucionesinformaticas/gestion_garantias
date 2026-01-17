@@ -1,15 +1,14 @@
 import os, uuid, shutil
-from fastapi import FastAPI, UploadFile, File, Form, Header, HTTPException, Depends
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, UploadFile, File, Form, Header, HTTPException, Depends, Response
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine, Base
-from models import Garantia, Comentario, Usuario
+from models import Garantia, Comentario, Usuario, ConfiguracionEmpresa
 from pydantic import BaseModel
 from typing import Optional
 from security import create_token, verify_token
 from sqlalchemy.exc import IntegrityError
-import pandas as pd
 from datetime import datetime
 
 # create tables
@@ -46,6 +45,22 @@ class UsuarioUpdate(BaseModel):
     password: Optional[str] = None
     rol: Optional[str] = None
 
+class EmpresaConfig(BaseModel):
+    nombre_empresa: str = "JD Soluciones"
+    telefono: Optional[str] = None
+    email: Optional[str] = None
+    direccion: Optional[str] = None
+    ciudad: Optional[str] = None
+    nit: Optional[str] = None
+
+class EmpresaConfigUpdate(BaseModel):
+    nombre_empresa: Optional[str] = None
+    telefono: Optional[str] = None
+    email: Optional[str] = None
+    direccion: Optional[str] = None
+    ciudad: Optional[str] = None
+    nit: Optional[str] = None
+
 # init admin
 def init_admin():
     db = SessionLocal()
@@ -62,7 +77,26 @@ def init_admin():
             db.rollback()
     db.close()
 
+def init_empresa_config():
+    db = SessionLocal()
+    if not db.query(ConfiguracionEmpresa).first():
+        config = ConfiguracionEmpresa(
+            nombre_empresa="JD Soluciones",
+            telefono="+57 300 123 4567",
+            email="contacto@jdsoluciones.com",
+            direccion="Calle 123 #45-67",
+            ciudad="Bogotá, Colombia",
+            nit="901.234.567-8"
+        )
+        db.add(config)
+        try:
+            db.commit()
+        except:
+            db.rollback()
+    db.close()
+
 init_admin()
+init_empresa_config()
 
 @app.post("/api/login")
 def login(data: LoginIn, db: Session = Depends(get_db)):
@@ -166,6 +200,63 @@ def eliminar_usuario(user_id: int, token: str = Header(None), db: Session = Depe
     
     return {"mensaje": "Usuario eliminado"}
 
+# CONFIGURACIÓN DE EMPRESA (solo admin)
+@app.get("/api/configuracion-empresa")
+def obtener_configuracion_empresa(token: str = Header(None), db: Session = Depends(get_db)):
+    username = verify_token(token)
+    dbuser = db.query(Usuario).filter(Usuario.username==username).first()
+    if not dbuser or dbuser.rol != "admin":
+        raise HTTPException(status_code=403, detail="Solo admin puede ver configuración")
+    
+    config = db.query(ConfiguracionEmpresa).first()
+    if not config:
+        raise HTTPException(status_code=404, detail="Configuración no encontrada")
+    
+    return {
+        "id": config.id,
+        "nombre_empresa": config.nombre_empresa,
+        "telefono": config.telefono,
+        "email": config.email,
+        "direccion": config.direccion,
+        "ciudad": config.ciudad,
+        "nit": config.nit,
+        "logo_path": config.logo_path,
+        "fecha_actualizacion": config.fecha_actualizacion.isoformat()
+    }
+
+@app.put("/api/configuracion-empresa")
+def actualizar_configuracion_empresa(config: EmpresaConfigUpdate, token: str = Header(None), db: Session = Depends(get_db)):
+    username = verify_token(token)
+    dbuser = db.query(Usuario).filter(Usuario.username==username).first()
+    if not dbuser or dbuser.rol != "admin":
+        raise HTTPException(status_code=403, detail="Solo admin puede actualizar configuración")
+    
+    empresa_config = db.query(ConfiguracionEmpresa).first()
+    if not empresa_config:
+        empresa_config = ConfiguracionEmpresa()
+        db.add(empresa_config)
+    
+    if config.nombre_empresa is not None:
+        empresa_config.nombre_empresa = config.nombre_empresa
+    if config.telefono is not None:
+        empresa_config.telefono = config.telefono
+    if config.email is not None:
+        empresa_config.email = config.email
+    if config.direccion is not None:
+        empresa_config.direccion = config.direccion
+    if config.ciudad is not None:
+        empresa_config.ciudad = config.ciudad
+    if config.nit is not None:
+        empresa_config.nit = config.nit
+    
+    try:
+        db.commit()
+    except:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Error al actualizar configuración")
+    
+    return {"mensaje": "Configuración actualizada"}
+
 # GARANTIAS
 @app.post("/api/garantias")
 async def crear_garantia_api(
@@ -251,6 +342,7 @@ def export_garantias(token: str = Header(None), db: Session = Depends(get_db)):
     u = db.query(Usuario).filter(Usuario.username == user).first()
     if not u or u.rol != "admin":
         raise HTTPException(status_code=403, detail="Solo admin puede exportar")
+    import pandas as pd
     items = db.query(Garantia).order_by(Garantia.id.desc()).all()
     rows = []
     for g in items:
@@ -259,3 +351,150 @@ def export_garantias(token: str = Header(None), db: Session = Depends(get_db)):
     out_path = os.path.join("data", f"garantias_export_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.xlsx")
     df.to_excel(out_path, index=False)
     return FileResponse(out_path, filename=os.path.basename(out_path), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+# RECIBO DE GARANTÍA
+@app.get("/api/garantias/{gid}/recibo")
+def generar_recibo(gid: int, token: str = Header(None), db: Session = Depends(get_db)):
+    username = verify_token(token)
+    
+    garantia = db.query(Garantia).filter(Garantia.id == gid).first()
+    if not garantia:
+        raise HTTPException(status_code=404, detail="Garantía no encontrada")
+    
+    # Obtener configuración de empresa
+    config = db.query(ConfiguracionEmpresa).first()
+    if not config:
+        config = ConfiguracionEmpresa()  # Valores por defecto
+    
+    # Obtener usuario que generó la garantía (del primer comentario o del registro)
+    usuario_registro = username  # Por defecto el usuario actual
+    
+    # Generar PDF del recibo
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib import colors
+    from reportlab.lib.units import inch
+    from io import BytesIO
+    
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    styles = getSampleStyleSheet()
+    
+    # Estilos personalizados
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=20,
+        spaceAfter=30,
+        alignment=1  # Centrado
+    )
+    
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Heading2'],
+        fontSize=14,
+        spaceAfter=20,
+        alignment=1
+    )
+    
+    normal_style = styles['Normal']
+    normal_style.spaceAfter = 10
+    
+    # Contenido del PDF
+    content = []
+    
+    # Título
+    content.append(Paragraph("RECIBO DE GARANTÍA", title_style))
+    content.append(Spacer(1, 20))
+    
+    # Información de la empresa
+    empresa_info = [
+        [f"Empresa: {config.nombre_empresa}"],
+        [f"Teléfono: {config.telefono or 'N/A'}"],
+        [f"Email: {config.email or 'N/A'}"],
+        [f"Dirección: {config.direccion or 'N/A'}"],
+        [f"Ciudad: {config.ciudad or 'N/A'}"],
+        [f"NIT: {config.nit or 'N/A'}"]
+    ]
+    
+    empresa_table = Table(empresa_info, colWidths=[6*inch])
+    empresa_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    
+    content.append(empresa_table)
+    content.append(Spacer(1, 20))
+    
+    # Fecha y número de recibo
+    content.append(Paragraph(f"Fecha de emisión: {datetime.utcnow().strftime('%d/%m/%Y %H:%M')}", normal_style))
+    content.append(Paragraph(f"Número de garantía: #{garantia.id}", normal_style))
+    content.append(Paragraph(f"Usuario que registra: {usuario_registro}", normal_style))
+    content.append(Spacer(1, 20))
+    
+    # Información de la garantía
+    content.append(Paragraph("DETALLE DE LA GARANTÍA", subtitle_style))
+    
+    garantia_info = [
+        ["Cliente:", garantia.cliente],
+        ["Producto:", garantia.producto],
+        ["Factura:", garantia.factura or "N/A"],
+        ["Fecha de compra:", garantia.fecha_compra or "N/A"],
+        ["Descripción de falla:", garantia.descripcion_falla or "N/A"],
+        ["Estado:", garantia.estado],
+        ["Fecha de registro:", garantia.fecha_registro.strftime('%d/%m/%Y %H:%M')]
+    ]
+    
+    garantia_table = Table(garantia_info, colWidths=[2*inch, 4*inch])
+    garantia_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    
+    content.append(garantia_table)
+    content.append(Spacer(1, 20))
+    
+    # Términos y condiciones
+    content.append(Paragraph("TÉRMINOS Y CONDICIONES", subtitle_style))
+    terminos = """
+    1. Esta garantía es válida por el período establecido por el fabricante.
+    2. La garantía cubre defectos de fabricación, no daños por uso indebido.
+    3. Para hacer efectiva la garantía, presente este recibo junto con el producto.
+    4. El tiempo de reparación puede variar según la disponibilidad de repuestos.
+    5. Esta garantía no incluye daños por transporte o instalación incorrecta.
+    """
+    content.append(Paragraph(terminos, normal_style))
+    content.append(Spacer(1, 20))
+    
+    # Firma
+    content.append(Paragraph("______________________________", ParagraphStyle('Firma', parent=normal_style, alignment=1)))
+    content.append(Paragraph("Firma del cliente", ParagraphStyle('FirmaLabel', parent=normal_style, alignment=1, spaceAfter=30)))
+    
+    # Generar PDF
+    doc.build(content)
+    buffer.seek(0)
+    
+    # Guardar en archivo temporal
+    import tempfile
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+        tmp_file.write(buffer.getvalue())
+        tmp_path = tmp_file.name
+    
+    return FileResponse(
+        tmp_path, 
+        media_type='application/pdf',
+        filename=f'recibo_garantia_{garantia.id}.pdf'
+    )
