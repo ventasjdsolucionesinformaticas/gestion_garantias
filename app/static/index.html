@@ -31,6 +31,7 @@
               <h5 class="card-title">Registrar nueva garantía</h5>
               <form id="formGarantia">
                 <div class="mb-2"><label>Cliente</label><input id="cliente" class="form-control" required></div>
+                <div class="mb-2"><label>Cédula</label><input id="cedula" class="form-control"></div>
                 <div class="mb-2"><label>Producto</label><input id="producto" class="form-control" required></div>
                 <div class="mb-2"><label>Factura</label><input id="factura" class="form-control"></div>
                 <div class="mb-2"><label>Fecha compra</label><input id="fecha_compra" type="date" class="form-control"></div>
@@ -73,7 +74,7 @@
               </div>
               <div class="table-responsive" style="max-height:60vh; overflow:auto">
                 <table class="table table-striped" id="tablaGarantias">
-                  <thead><tr><th>ID</th><th>Cliente</th><th>Producto</th><th>Falla</th><th>Estado</th><th>Acciones</th></tr></thead>
+                  <thead><tr><th>ID</th><th>Cliente</th><th>Cédula</th><th>Producto</th><th>Falla</th><th>Estado</th><th>Acciones</th></tr></thead>
                   <tbody></tbody>
                 </table>
               </div>
@@ -269,6 +270,7 @@
         e.preventDefault();
         const fd = new FormData();
         fd.append('cliente', document.getElementById('cliente').value);
+        fd.append('cedula', document.getElementById('cedula').value);
         fd.append('producto', document.getElementById('producto').value);
         fd.append('factura', document.getElementById('factura').value);
         fd.append('fecha_compra', document.getElementById('fecha_compra').value);
@@ -278,6 +280,7 @@
         
         const res = await api('/garantias', {method:'POST', body: fd});
         if(res.ok){
+          const garantiaData = await res.json();
           document.getElementById('msg').textContent='Guardado';
           document.getElementById('formGarantia').reset();
           cargarGarantias();
@@ -287,31 +290,26 @@
             // Pequeña pausa para asegurar que la garantía se guardó
             setTimeout(async ()=>{
               try {
-                // Obtener la lista actualizada de garantías para encontrar la última
-                const resGarantias = await api('/garantias');
-                if(resGarantias.ok){
-                  const garantias = await resGarantias.json();
-                  if(garantias.length > 0){
-                    // La última garantía es la más reciente (asumiendo orden por ID)
-                    const ultimaGarantia = garantias[garantias.length - 1];
-                    const resPdf = await api(`/garantias/${ultimaGarantia.id}/pdf`);
-                    if(resPdf.ok){
-                      const blob = await resPdf.blob();
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = `recibo_garantia_${ultimaGarantia.id}.pdf`;
-                      document.body.appendChild(a);
-                      a.click();
-                      a.remove();
-                      URL.revokeObjectURL(url);
-                    }
-                  }
+                const resPdf = await api(`/garantias/${garantiaData.id}/recibo`);
+                if(resPdf.ok){
+                  const blob = await resPdf.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `recibo_garantia_${garantiaData.id}.pdf`;
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  URL.revokeObjectURL(url);
+                } else {
+                  const j = await resPdf.json().catch(()=>({detail:'Error desconocido'}));
+                  alert(`Error al generar recibo: ${j.detail}`);
                 }
               } catch(err){
                 console.error('Error al descargar PDF:', err);
+                alert('Error al descargar el recibo');
               }
-            }, 500);
+            }, 300);
           }
           
           setTimeout(()=>document.getElementById('msg').textContent='',2000);
@@ -329,7 +327,7 @@
           if(g.estado==='Resuelta' || g.estado==='Resuelta') badge = '<span class="badge badge-resuelta">Resuelta</span>';
           if(g.estado==='Rechazada') badge = '<span class="badge badge-rechazada">Rechazada</span>';
           if(g.estado==='En gestión') badge = '<span class="badge badge-pendiente">En gestión</span>';
-          tr.innerHTML = `<td>${g.id}</td><td>${g.cliente}</td><td>${g.producto}</td><td>${g.descripcion_falla||''}</td><td>${badge}</td><td><button class="btn btn-sm btn-outline-primary" onclick="verDetalle(${g.id})">Ver</button> <button class="btn btn-sm btn-outline-success" onclick="abrirComentario(${g.id})">Comentar</button> <button class="btn btn-sm btn-outline-info" onclick="imprimirRecibo(${g.id})">🖨️</button></td>`;
+          tr.innerHTML = `<td>${g.id}</td><td>${g.cliente}</td><td>${g.cedula||''}</td><td>${g.producto}</td><td>${g.descripcion_falla||''}</td><td>${badge}</td><td><button class="btn btn-sm btn-outline-primary" onclick="verDetalle(${g.id})">Ver</button> <button class="btn btn-sm btn-outline-success" onclick="abrirComentario(${g.id})">Comentar</button> <button class="btn btn-sm btn-outline-info" onclick="imprimirRecibo(${g.id})">🖨️</button></td>`;
           tbody.appendChild(tr);
         });
       }
@@ -352,7 +350,7 @@
         const res = await api('/garantias'); const data = await res.json();
         const g = data.find(x=>x.id===id);
         if(!g) return alert('No encontrado');
-        document.getElementById('detailBody').innerHTML = `<p><strong>ID:</strong> ${g.id}</p><p><strong>Cliente:</strong> ${g.cliente}</p><p><strong>Producto:</strong> ${g.producto}</p><p><strong>Falla:</strong> ${g.descripcion_falla||''}</p><p><strong>Estado:</strong> <span id="estadoDetalle">${g.estado}</span></p>${g.imagen_path?`<p><a href='${g.imagen_path}' target='_blank'>Ver imagen</a></p>`:''}`;
+        document.getElementById('detailBody').innerHTML = `<p><strong>ID:</strong> ${g.id}</p><p><strong>Cliente:</strong> ${g.cliente}</p><p><strong>Cédula:</strong> ${g.cedula||''}</p><p><strong>Producto:</strong> ${g.producto}</p><p><strong>Falla:</strong> ${g.descripcion_falla||''}</p><p><strong>Estado:</strong> <span id="estadoDetalle">${g.estado}</span></p>${g.imagen_path?`<p><a href='${g.imagen_path}' target='_blank'>Ver imagen</a></p>`:''}`;
         await cargarComentarios(id);
         detailModalEl.dataset.gid = id;
         document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());

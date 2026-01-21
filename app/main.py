@@ -261,6 +261,7 @@ def actualizar_configuracion_empresa(config: EmpresaConfigUpdate, token: str = H
 @app.post("/api/garantias")
 async def crear_garantia_api(
     cliente: str = Form(...),
+    cedula: Optional[str] = Form(None),
     producto: str = Form(...),
     factura: Optional[str] = Form(None),
     fecha_compra: Optional[str] = Form(None),
@@ -278,11 +279,11 @@ async def crear_garantia_api(
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(imagen.file, buffer)
         imagen_path = f"/uploads/{filename}"
-    nueva = Garantia(cliente=cliente, producto=producto, factura=factura, fecha_compra=fecha_compra, descripcion_falla=descripcion_falla, imagen_path=imagen_path, estado="Pendiente")
+    nueva = Garantia(cliente=cliente, cedula=cedula, producto=producto, factura=factura, fecha_compra=fecha_compra, descripcion_falla=descripcion_falla, imagen_path=imagen_path, estado="Pendiente")
     db.add(nueva)
     db.commit()
     db.refresh(nueva)
-    return {"id": nueva.id, "cliente": nueva.cliente, "producto": nueva.producto, "estado": nueva.estado, "fecha_registro": nueva.fecha_registro.isoformat()}
+    return {"id": nueva.id, "cliente": nueva.cliente, "cedula": nueva.cedula, "producto": nueva.producto, "estado": nueva.estado, "fecha_registro": nueva.fecha_registro.isoformat()}
 
 @app.get("/api/garantias")
 def listar_garantias_api(db: Session = Depends(get_db), token: str = Header(None)):
@@ -290,7 +291,7 @@ def listar_garantias_api(db: Session = Depends(get_db), token: str = Header(None
     items = db.query(Garantia).order_by(Garantia.id.desc()).all()
     out = []
     for g in items:
-        out.append({"id": g.id, "cliente": g.cliente, "producto": g.producto, "factura": g.factura, "fecha_compra": g.fecha_compra, "descripcion_falla": g.descripcion_falla, "imagen_path": g.imagen_path, "estado": g.estado, "fecha_registro": g.fecha_registro.isoformat()})
+        out.append({"id": g.id, "cliente": g.cliente, "cedula": g.cedula, "producto": g.producto, "factura": g.factura, "fecha_compra": g.fecha_compra, "descripcion_falla": g.descripcion_falla, "imagen_path": g.imagen_path, "estado": g.estado, "fecha_registro": g.fecha_registro.isoformat()})
     return out
 
 # comentarios con adjunto
@@ -346,7 +347,7 @@ def export_garantias(token: str = Header(None), db: Session = Depends(get_db)):
     items = db.query(Garantia).order_by(Garantia.id.desc()).all()
     rows = []
     for g in items:
-        rows.append({"id": g.id, "cliente": g.cliente, "producto": g.producto, "factura": g.factura, "fecha_compra": g.fecha_compra, "descripcion_falla": g.descripcion_falla, "estado": g.estado, "fecha_registro": g.fecha_registro.isoformat()})
+        rows.append({"id": g.id, "cliente": g.cliente, "cedula": g.cedula, "producto": g.producto, "factura": g.factura, "fecha_compra": g.fecha_compra, "descripcion_falla": g.descripcion_falla, "estado": g.estado, "fecha_registro": g.fecha_registro.isoformat()})
     df = pd.DataFrame(rows)
     out_path = os.path.join("data", f"garantias_export_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.xlsx")
     df.to_excel(out_path, index=False)
@@ -444,6 +445,7 @@ def generar_recibo(gid: int, token: str = Header(None), db: Session = Depends(ge
     
     garantia_info = [
         ["Cliente:", garantia.cliente],
+        ["Cédula:", garantia.cedula or "N/A"],
         ["Producto:", garantia.producto],
         ["Factura:", garantia.factura or "N/A"],
         ["Fecha de compra:", garantia.fecha_compra or "N/A"],

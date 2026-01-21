@@ -7,6 +7,7 @@ class Garantia(Base):
     __tablename__ = "garantias"
     id = Column(Integer, primary_key=True, index=True)
     cliente = Column(String, index=True, nullable=False)
+    cedula = Column(String, nullable=True)
     producto = Column(String, nullable=False)
     factura = Column(String, nullable=True)
     fecha_compra = Column(String, nullable=True)
