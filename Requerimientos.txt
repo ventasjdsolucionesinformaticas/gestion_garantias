@@ -1,0 +1,2 @@
+El guardar debe ser un imprimir
+Agregar campo para la fecha de entrega cuando se cambie el estado a resuelta para que quede en el historial del prodcuto, y cuando se vaya a entregar el  prodcuto quede impresa.
