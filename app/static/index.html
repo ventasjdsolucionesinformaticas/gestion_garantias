@@ -14,7 +14,7 @@
   <body class="bg-light">
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-3">
       <div class="container-fluid">
-        <a class="navbar-brand" href="#">Garantías JD Soluciones</a>
+        <a class="navbar-brand" href="#" id="navbarBrand">Garantías</a>
         <div class="d-flex">
           <button class="btn btn-light me-2" id="btnExport" style="display:none">📤 Exportar</button>
           <span id="navUser" class="text-white me-3"></span>
@@ -33,6 +33,7 @@
                 <div class="mb-2"><label>Cliente</label><input id="cliente" class="form-control" required></div>
                 <div class="mb-2"><label>Cédula</label><input id="cedula" class="form-control"></div>
                 <div class="mb-2"><label>Teléfono</label><input id="telefono" class="form-control" required></div>
+                <div class="mb-2"><label>Correo electrónico</label><input id="email" type="email" class="form-control" placeholder="ejemplo@correo.com"></div>
                 <div class="mb-2"><label>Tipo de producto</label>
                   <select id="tipo_producto" class="form-control" required>
                     <option value="" disabled selected>Seleccionar...</option>
@@ -64,8 +65,10 @@
                   <input type="text" id="buscador" class="form-control form-control-sm me-2" placeholder="Buscar...">
                   <select id="filtroEstado" class="form-select form-select-sm">
                     <option value="">Todos</option>
-                    <option value="Pendiente">Pendiente</option>
-                    <option value="En gestión">En gestión</option>
+                    <option value="Recibido">Recibido</option>
+                    <option value="En Validacion">En Validación</option>
+                    <option value="Enviado">Enviado</option>
+                    <option value="Esperando Respuesta">Esperando Respuesta</option>
                     <option value="Resuelta">Resuelta</option>
                     <option value="Rechazada">Rechazada</option>
                   </select>
@@ -73,7 +76,7 @@
               </div>
               <div class="table-responsive" style="max-height:60vh; overflow:auto">
                 <table class="table table-striped" id="tablaGarantias">
-                  <thead><tr><th>ID</th><th>Cliente</th><th>Cédula</th><th>Teléfono</th><th>Producto</th><th>Falla</th><th>Estado</th><th>Acciones</th></tr></thead>
+                  <thead><tr><th>ID</th><th>Cliente</th><th>Cédula</th><th>Teléfono</th><th>Email</th><th>Producto</th><th>Falla</th><th>Estado</th><th>Acciones</th></tr></thead>
                   <tbody></tbody>
                 </table>
               </div>
@@ -188,7 +191,7 @@
               <div class="mb-2"><textarea id="comentario_text" class="form-control" rows="3" placeholder="Agregar comentario..."></textarea></div>
               <div class="mb-2"><input id="comentario_file" type="file" class="form-control"></div>
               <div class="d-flex justify-content-between">
-                <select id="cambiar_estado" class="form-select" style="width:200px"><option value="Pendiente">Pendiente</option><option value="En gestión">En gestión</option><option value="Resuelta">Resuelta</option><option value="Rechazada">Rechazada</option></select>
+                <select id="cambiar_estado" class="form-select" style="width:200px"><option value="Recibido">Recibido</option><option value="En Validacion">En Validación</option><option value="Enviado">Enviado</option><option value="Esperando Respuesta">Esperando Respuesta</option><option value="Resuelta">Resuelta</option><option value="Rechazada">Rechazada</option></select>
                 <div><button type="button" id="btnPrintRecibo" class="btn btn-info me-2">🖨️ Imprimir Recibo</button><button type="button" id="btnAddComment" class="btn btn-primary me-2">Agregar comentario</button> <button type="button" id="btnChangeState" class="btn btn-secondary">Cambiar estado</button></div>
               </div>
             </form>
@@ -253,6 +256,23 @@
         return res;
       }
 
+      function aplicarNombreEmpresa(nombre){
+        const n = (nombre || '').trim() || 'Empresa';
+        document.title = 'Garantías - ' + n;
+        const brand = document.getElementById('navbarBrand');
+        if(brand) brand.textContent = 'Garantías ' + n;
+      }
+
+      async function actualizarTituloEmpresa(){
+        const res = await api('/configuracion-empresa/nombre');
+        if(res.ok){
+          try {
+            const d = await res.json();
+            aplicarNombreEmpresa(d.nombre_empresa);
+          } catch(e) { console.warn('actualizarTituloEmpresa:', e); }
+        }
+      }
+
       // login
       document.getElementById('formLogin').addEventListener('submit', async (e)=>{
         e.preventDefault();
@@ -272,6 +292,7 @@
         }
         document.getElementById('appGarantias').style.display='block';
         cargarGarantias();
+        actualizarTituloEmpresa();
       });
 
       window.addEventListener('load', ()=>{
@@ -288,6 +309,7 @@
           document.getElementById('loginModal').style.display='none';
           document.getElementById('appGarantias').style.display='block';
           cargarGarantias();
+          actualizarTituloEmpresa();
         }
       });
 
@@ -319,6 +341,7 @@
         fd.append('cliente', document.getElementById('cliente').value);
         fd.append('cedula', document.getElementById('cedula').value);
         fd.append('telefono', document.getElementById('telefono').value);
+        fd.append('email', document.getElementById('email').value);
         fd.append('tipo_producto', document.getElementById('tipo_producto').value);
         fd.append('marca', document.getElementById('marca').value);
         fd.append('modelo', document.getElementById('modelo').value);
@@ -372,17 +395,16 @@
         data.filter(g => {
           if (filtro && g.estado !== filtro) return false;
           if (search) {
-            const text = `${g.id} ${g.cliente} ${g.cedula||''} ${g.telefono||''} ${g.tipo_producto||''} ${g.marca||''} ${g.modelo||''} ${g.serial||''} ${g.factura||''} ${g.fecha_compra||''} ${g.descripcion_falla||''} ${g.estado}`.toLowerCase();
+            const text = `${g.id} ${g.cliente} ${g.cedula||''} ${g.telefono||''} ${g.email||''} ${g.tipo_producto||''} ${g.marca||''} ${g.modelo||''} ${g.serial||''} ${g.factura||''} ${g.fecha_compra||''} ${g.descripcion_falla||''} ${g.estado}`.toLowerCase();
             if (!text.includes(search)) return false;
           }
           return true;
         }).forEach(g=>{
           const tr = document.createElement('tr');
-          let badge = '<span class="badge badge-pendiente">Pendiente</span>';
-          if(g.estado==='Resuelta' || g.estado==='Resuelta') badge = '<span class="badge badge-resuelta">Resuelta</span>';
+          let badge = '<span class="badge badge-pendiente">' + (g.estado || 'Recibido') + '</span>';
+          if(g.estado==='Resuelta') badge = '<span class="badge badge-resuelta">Resuelta</span>';
           if(g.estado==='Rechazada') badge = '<span class="badge badge-rechazada">Rechazada</span>';
-          if(g.estado==='En gestión') badge = '<span class="badge badge-pendiente">En gestión</span>';
-          tr.innerHTML = `<td>${g.id}</td><td>${g.cliente}</td><td>${g.cedula||''}</td><td>${g.telefono||''}</td><td>${g.tipo_producto||''} ${g.marca?' - '+g.marca:''} ${g.modelo?' - '+g.modelo:''} ${g.serial?' - '+g.serial:''}</td><td>${g.descripcion_falla||''}</td><td>${badge}</td><td><button class="btn btn-sm btn-outline-primary" onclick="verDetalle(${g.id})">Ver</button> <button class="btn btn-sm btn-outline-success" onclick="abrirComentario(${g.id})">Comentar</button> <button class="btn btn-sm btn-outline-info" onclick="imprimirRecibo(${g.id})">🖨️</button></td>`;
+          tr.innerHTML = `<td>${g.id}</td><td>${g.cliente}</td><td>${g.cedula||''}</td><td>${g.telefono||''}</td><td>${g.email||''}</td><td>${g.tipo_producto||''} ${g.marca?' - '+g.marca:''} ${g.modelo?' - '+g.modelo:''} ${g.serial?' - '+g.serial:''}</td><td>${g.descripcion_falla||''}</td><td>${badge}</td><td><button class="btn btn-sm btn-outline-primary" onclick="verDetalle(${g.id})">Ver</button> <button class="btn btn-sm btn-outline-success" onclick="abrirComentario(${g.id})">Comentar</button> <button class="btn btn-sm btn-outline-info" onclick="imprimirRecibo(${g.id})">🖨️</button></td>`;
           tbody.appendChild(tr);
         });
       }
@@ -401,6 +423,7 @@
           document.getElementById('empresa_direccion').value = config.direccion || '';
           document.getElementById('empresa_ciudad').value = config.ciudad || '';
           document.getElementById('empresa_nit').value = config.nit || '';
+          aplicarNombreEmpresa(config.nombre_empresa);
           const preview = document.getElementById('logoPreview');
           if(config.logo_path){
             preview.innerHTML = `<img src="${config.logo_path}" style="max-width:100px; max-height:100px;">`;
@@ -423,6 +446,7 @@
         };
         const res = await api('/configuracion-empresa', {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
         if(res.ok){
+          aplicarNombreEmpresa(data.nombre_empresa);
           document.getElementById('msgEmpresa').textContent = 'Actualizado';
           setTimeout(()=>document.getElementById('msgEmpresa').textContent='',2000);
         } else {
@@ -464,7 +488,9 @@
         const res = await api('/garantias'); const data = await res.json();
         const g = data.find(x=>x.id===id);
         if(!g) return alert('No encontrado');
-        document.getElementById('detailBody').innerHTML = `<p><strong>ID:</strong> ${g.id}</p><p><strong>Cliente:</strong> ${g.cliente}</p><p><strong>Cédula:</strong> ${g.cedula||''}</p><p><strong>Teléfono:</strong> ${g.telefono||''}</p><p><strong>Tipo de producto:</strong> ${g.tipo_producto||''}</p><p><strong>Marca:</strong> ${g.marca||''}</p><p><strong>Modelo:</strong> ${g.modelo||''}</p><p><strong>Serial:</strong> ${g.serial||''}</p><p><strong>Falla:</strong> ${g.descripcion_falla||''}</p><p><strong>Estado:</strong> <span id="estadoDetalle">${g.estado}</span></p>${g.imagen_path?`<p><a href='${g.imagen_path}' target='_blank'>Ver imagen</a></p>`:''}`;
+        document.getElementById('detailBody').innerHTML = `<p><strong>ID:</strong> ${g.id}</p><p><strong>Cliente:</strong> ${g.cliente}</p><p><strong>Cédula:</strong> ${g.cedula||''}</p><p><strong>Teléfono:</strong> ${g.telefono||''}</p><p><strong>Correo:</strong> ${g.email||'—'}</p><p><strong>Tipo de producto:</strong> ${g.tipo_producto||''}</p><p><strong>Marca:</strong> ${g.marca||''}</p><p><strong>Modelo:</strong> ${g.modelo||''}</p><p><strong>Serial:</strong> ${g.serial||''}</p><p><strong>Falla:</strong> ${g.descripcion_falla||''}</p><p><strong>Estado:</strong> <span id="estadoDetalle">${g.estado}</span></p>${g.imagen_path?`<p><a href='${g.imagen_path}' target='_blank'>Ver imagen</a></p>`:''}`;
+        const selEstado = document.getElementById('cambiar_estado');
+        selEstado.value = (g.estado && selEstado.querySelector('option[value="'+g.estado+'"]')) ? g.estado : 'Recibido';
         await cargarComentarios(id);
         detailModalEl.dataset.gid = id;
         document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());

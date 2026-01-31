@@ -7,4 +7,5 @@ services:
     volumes:
       - ./data:/app/data
       - ./app/uploads:/app/uploads
+      - ./app/static:/app/static
     restart: always

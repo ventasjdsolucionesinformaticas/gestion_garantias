@@ -9,6 +9,7 @@ class Garantia(Base):
     cliente = Column(String, index=True, nullable=False)
     cedula = Column(String, nullable=True)
     telefono = Column(String, nullable=True)
+    email = Column(String, nullable=True)
     tipo_producto = Column(String, nullable=True)
     marca = Column(String, nullable=True)
     modelo = Column(String, nullable=True)
@@ -17,7 +18,7 @@ class Garantia(Base):
     fecha_compra = Column(String, nullable=True)
     descripcion_falla = Column(Text, nullable=True)
     imagen_path = Column(String, nullable=True)
-    estado = Column(String, default="Pendiente")
+    estado = Column(String, default="Recibido")
     fecha_registro = Column(DateTime, default=datetime.utcnow)
     comentarios = relationship("Comentario", back_populates="garantia", cascade="all, delete-orphan")
 

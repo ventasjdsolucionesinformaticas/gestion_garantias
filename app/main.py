@@ -14,6 +14,20 @@ from datetime import datetime
 # create tables
 Base.metadata.create_all(bind=engine)
 
+# Migración: añadir columna email a garantias si no existe
+def ensure_email_column():
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        try:
+            r = conn.execute(text("PRAGMA table_info(garantias)"))
+            cols = [row[1] for row in r.fetchall()]
+            if "email" not in cols:
+                conn.execute(text("ALTER TABLE garantias ADD COLUMN email VARCHAR"))
+                conn.commit()
+        except Exception:
+            pass
+ensure_email_column()
+
 app = FastAPI(title="Garantías JD Soluciones - v3.4", version="3.4", docs_url="/docs", redoc_url="/redoc", openapi_url="/openapi.json")
 
 UPLOAD_DIR = os.path.join(os.getcwd(), "uploads")
@@ -201,6 +215,13 @@ def eliminar_usuario(user_id: int, token: str = Header(None), db: Session = Depe
     return {"mensaje": "Usuario eliminado"}
 
 # CONFIGURACIÓN DE EMPRESA (solo admin)
+@app.get("/api/configuracion-empresa/nombre")
+def obtener_nombre_empresa(token: str = Header(None), db: Session = Depends(get_db)):
+    """Devuelve solo el nombre de la empresa para título/navbar (cualquier usuario autenticado)."""
+    verify_token(token)
+    config = db.query(ConfiguracionEmpresa).first()
+    return {"nombre_empresa": config.nombre_empresa if config else "Empresa"}
+
 @app.get("/api/configuracion-empresa")
 def obtener_configuracion_empresa(token: str = Header(None), db: Session = Depends(get_db)):
     username = verify_token(token)
@@ -294,6 +315,7 @@ async def crear_garantia_api(
     cliente: str = Form(...),
     cedula: Optional[str] = Form(None),
     telefono: str = Form(...),
+    email: Optional[str] = Form(None),
     tipo_producto: str = Form(...),
     marca: Optional[str] = Form(None),
     modelo: Optional[str] = Form(None),
@@ -314,11 +336,11 @@ async def crear_garantia_api(
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(imagen.file, buffer)
         imagen_path = f"/uploads/{filename}"
-    nueva = Garantia(cliente=cliente, cedula=cedula, telefono=telefono, tipo_producto=tipo_producto, marca=marca, modelo=modelo, serial=serial, factura=factura, fecha_compra=fecha_compra, descripcion_falla=descripcion_falla, imagen_path=imagen_path, estado="Pendiente")
+    nueva = Garantia(cliente=cliente, cedula=cedula, telefono=telefono, email=email, tipo_producto=tipo_producto, marca=marca, modelo=modelo, serial=serial, factura=factura, fecha_compra=fecha_compra, descripcion_falla=descripcion_falla, imagen_path=imagen_path, estado="Recibido")
     db.add(nueva)
     db.commit()
     db.refresh(nueva)
-    return {"id": nueva.id, "cliente": nueva.cliente, "cedula": nueva.cedula, "telefono": nueva.telefono, "tipo_producto": nueva.tipo_producto, "marca": nueva.marca, "modelo": nueva.modelo, "serial": nueva.serial, "estado": nueva.estado, "fecha_registro": nueva.fecha_registro.isoformat()}
+    return {"id": nueva.id, "cliente": nueva.cliente, "cedula": nueva.cedula, "telefono": nueva.telefono, "email": nueva.email, "tipo_producto": nueva.tipo_producto, "marca": nueva.marca, "modelo": nueva.modelo, "serial": nueva.serial, "estado": nueva.estado, "fecha_registro": nueva.fecha_registro.isoformat()}
 
 @app.get("/api/garantias")
 def listar_garantias_api(db: Session = Depends(get_db), token: str = Header(None)):
@@ -326,7 +348,7 @@ def listar_garantias_api(db: Session = Depends(get_db), token: str = Header(None
     items = db.query(Garantia).order_by(Garantia.id.desc()).all()
     out = []
     for g in items:
-        out.append({"id": g.id, "cliente": g.cliente, "cedula": g.cedula, "telefono": g.telefono, "tipo_producto": g.tipo_producto, "marca": g.marca, "modelo": g.modelo, "serial": g.serial, "factura": g.factura, "fecha_compra": g.fecha_compra, "descripcion_falla": g.descripcion_falla, "imagen_path": g.imagen_path, "estado": g.estado, "fecha_registro": g.fecha_registro.isoformat()})
+        out.append({"id": g.id, "cliente": g.cliente, "cedula": g.cedula, "telefono": g.telefono, "email": g.email, "tipo_producto": g.tipo_producto, "marca": g.marca, "modelo": g.modelo, "serial": g.serial, "factura": g.factura, "fecha_compra": g.fecha_compra, "descripcion_falla": g.descripcion_falla, "imagen_path": g.imagen_path, "estado": g.estado, "fecha_registro": g.fecha_registro.isoformat()})
     return out
 
 # comentarios con adjunto
@@ -382,7 +404,7 @@ def export_garantias(token: str = Header(None), db: Session = Depends(get_db)):
     items = db.query(Garantia).order_by(Garantia.id.desc()).all()
     rows = []
     for g in items:
-        rows.append({"id": g.id, "cliente": g.cliente, "cedula": g.cedula, "telefono": g.telefono, "tipo_producto": g.tipo_producto, "marca": g.marca, "modelo": g.modelo, "serial": g.serial, "factura": g.factura, "fecha_compra": g.fecha_compra, "descripcion_falla": g.descripcion_falla, "estado": g.estado, "fecha_registro": g.fecha_registro.isoformat()})
+        rows.append({"id": g.id, "cliente": g.cliente, "cedula": g.cedula, "telefono": g.telefono, "email": g.email, "tipo_producto": g.tipo_producto, "marca": g.marca, "modelo": g.modelo, "serial": g.serial, "factura": g.factura, "fecha_compra": g.fecha_compra, "descripcion_falla": g.descripcion_falla, "estado": g.estado, "fecha_registro": g.fecha_registro.isoformat()})
     df = pd.DataFrame(rows)
     out_path = os.path.join("data", f"garantias_export_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.xlsx")
     df.to_excel(out_path, index=False)
@@ -431,8 +453,8 @@ def generar_recibo(gid: int, token: str = Header(None), db: Session = Depends(ge
     title_style = ParagraphStyle(
         'CustomTitle',
         parent=styles['Heading1'],
-        fontSize=14,
-        spaceAfter=5,  # Reducido aún más para bajar el título
+        fontSize=10,
+        spaceAfter=3,
         alignment=1  # Centrado
     )
     
@@ -455,6 +477,19 @@ def generar_recibo(gid: int, token: str = Header(None), db: Session = Depends(ge
     
     normal_style = styles['Normal']
     normal_style.spaceAfter = 10
+    
+    # Estilo para política de garantía: letra muy pequeña, justificado
+    policy_style = ParagraphStyle(
+        'PolicyText',
+        parent=styles['Normal'],
+        fontSize=5,
+        leading=6,
+        alignment=4,  # 4 = JUSTIFY en ReportLab
+        spaceBefore=4,
+        spaceAfter=4,
+        leftIndent=0,
+        rightIndent=0,
+    )
     
     # Contenido del PDF
     content = []
@@ -511,9 +546,9 @@ def generar_recibo(gid: int, token: str = Header(None), db: Session = Depends(ge
         content.append(Spacer(1, 2)) # Reducir aún más el espacio después del header
     
     # Título
-    content.append(Spacer(1, 15)) # Aumentar espacio antes del título
-    content.append(Paragraph(f"RECIBO DE GARANTÍA <font size=\"12\">#{garantia.id}</font>", title_style))
-    content.append(Spacer(1, 5)) # Reducir espacio después del título
+    content.append(Spacer(1, 8))
+    content.append(Paragraph(f"RECIBO DE GARANTÍA #{garantia.id}", title_style))
+    content.append(Spacer(1, 3))
     
     # Información básica en tabla
     data = []
@@ -523,7 +558,9 @@ def generar_recibo(gid: int, token: str = Header(None), db: Session = Depends(ge
     data.append(["Cliente:", garantia.cliente])
     if garantia.telefono:
         data.append(["Teléfono:", garantia.telefono])
-    
+    if garantia.email:
+        data.append(["Email:", garantia.email])
+
     # Combinar producto en una sola línea
     producto_parts = []
     if garantia.tipo_producto:
@@ -568,7 +605,17 @@ def generar_recibo(gid: int, token: str = Header(None), db: Session = Depends(ge
     ]))
     
     content.append(table)
-    content.append(Spacer(1, 20))
+    content.append(Spacer(1, 6))
+    
+    # Política de garantía (texto justificado, letra muy pequeña)
+    politica_texto = (
+        "EL PRESENTE DOCUMENTO NO SIGNIFICA QUE ACEPTAMOS LA GARANTÍA; SIGNIFICA QUE ESTAMOS RECIBIENDO EL EQUIPO "
+        "PARA REVISARLO Y CONFIRMAR SI APLICA O NO DICHA GARANTÍA. Después de 30 días a partir de la fecha, se cobrará "
+        "bodegaje a razón de quinientos pesos ($500) por día. Transcurridos 90 días, se considera que el dispositivo ha "
+        "sido abandonado. En caso de pérdida o daño por fuerza mayor no se responderá por el mismo."
+    )
+    content.append(Paragraph(politica_texto, policy_style))
+    content.append(Spacer(1, 4))
     
     # Firma
     content.append(Paragraph("______________________________", ParagraphStyle('Firma', parent=normal_style, alignment=1)))
