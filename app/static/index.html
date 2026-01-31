@@ -120,6 +120,40 @@
             </div>
           </div>
         </div>
+        <hr>
+        <h4>🏢 Configuración de Empresa</h4>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="card mb-3">
+              <div class="card-body">
+                <h5 class="card-title">Editar Información</h5>
+                <form id="formEmpresa">
+                  <div class="mb-2"><label>Nombre Empresa</label><input id="empresa_nombre" class="form-control"></div>
+                  <div class="mb-2"><label>Teléfono</label><input id="empresa_telefono" class="form-control"></div>
+                  <div class="mb-2"><label>Email</label><input id="empresa_email" class="form-control"></div>
+                  <div class="mb-2"><label>Dirección</label><textarea id="empresa_direccion" class="form-control"></textarea></div>
+                  <div class="mb-2"><label>Ciudad</label><input id="empresa_ciudad" class="form-control"></div>
+                  <div class="mb-2"><label>NIT</label><input id="empresa_nit" class="form-control"></div>
+                  <button type="submit" class="btn btn-primary">Actualizar</button>
+                  <span id="msgEmpresa" class="ms-2"></span>
+                </form>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-body">
+                <h5 class="card-title">Subir Logo</h5>
+                <form id="formLogo">
+                  <div class="mb-2"><input id="logo_file" type="file" class="form-control" accept="image/*" required></div>
+                  <button type="submit" class="btn btn-success">Subir Logo</button>
+                  <span id="msgLogo" class="ms-2"></span>
+                </form>
+                <div id="logoPreview" class="mt-2"></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -234,6 +268,7 @@
           document.getElementById('btnExport').style.display='inline-block';
           document.getElementById('adminPanel').style.display='block';
           cargarUsuarios();
+          cargarEmpresaConfig();
         }
         document.getElementById('appGarantias').style.display='block';
         cargarGarantias();
@@ -248,6 +283,7 @@
             document.getElementById('btnExport').style.display='inline-block';
             document.getElementById('adminPanel').style.display='block';
             cargarUsuarios();
+            cargarEmpresaConfig();
           }
           document.getElementById('loginModal').style.display='none';
           document.getElementById('appGarantias').style.display='block';
@@ -353,6 +389,64 @@
 
       document.getElementById('filtroEstado').addEventListener('change', cargarGarantias);
       document.getElementById('buscador').addEventListener('input', cargarGarantias);
+
+      // cargar empresa config
+      async function cargarEmpresaConfig(){
+        const res = await api('/configuracion-empresa');
+        if(res.ok){
+          const config = await res.json();
+          document.getElementById('empresa_nombre').value = config.nombre_empresa || '';
+          document.getElementById('empresa_telefono').value = config.telefono || '';
+          document.getElementById('empresa_email').value = config.email || '';
+          document.getElementById('empresa_direccion').value = config.direccion || '';
+          document.getElementById('empresa_ciudad').value = config.ciudad || '';
+          document.getElementById('empresa_nit').value = config.nit || '';
+          const preview = document.getElementById('logoPreview');
+          if(config.logo_path){
+            preview.innerHTML = `<img src="${config.logo_path}" style="max-width:100px; max-height:100px;">`;
+          } else {
+            preview.innerHTML = 'No hay logo';
+          }
+        }
+      }
+
+      // actualizar empresa
+      document.getElementById('formEmpresa').addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const data = {
+          nombre_empresa: document.getElementById('empresa_nombre').value,
+          telefono: document.getElementById('empresa_telefono').value,
+          email: document.getElementById('empresa_email').value,
+          direccion: document.getElementById('empresa_direccion').value,
+          ciudad: document.getElementById('empresa_ciudad').value,
+          nit: document.getElementById('empresa_nit').value
+        };
+        const res = await api('/configuracion-empresa', {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)});
+        if(res.ok){
+          document.getElementById('msgEmpresa').textContent = 'Actualizado';
+          setTimeout(()=>document.getElementById('msgEmpresa').textContent='',2000);
+        } else {
+          const j = await res.json().catch(()=>({detail:'Error desconocido'}));
+          document.getElementById('msgEmpresa').textContent = j.detail || 'Error';
+        }
+      });
+
+      // subir logo
+      document.getElementById('formLogo').addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const fd = new FormData();
+        fd.append('logo', document.getElementById('logo_file').files[0]);
+        const res = await api('/configuracion-empresa/logo', {method:'POST', body: fd});
+        if(res.ok){
+          const data = await res.json();
+          document.getElementById('msgLogo').textContent = 'Logo subido';
+          document.getElementById('logoPreview').innerHTML = `<img src="${data.logo_path}" style="max-width:100px; max-height:100px;">`;
+          setTimeout(()=>document.getElementById('msgLogo').textContent='',2000);
+        } else {
+          const j = await res.json().catch(()=>({detail:'Error'}));
+          document.getElementById('msgLogo').textContent = j.detail || 'Error';
+        }
+      });
 
       // cargar comentarios
       async function cargarComentarios(gid){

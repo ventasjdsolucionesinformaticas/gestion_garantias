@@ -1,2 +1,13 @@
-El guardar debe ser un imprimir
-Agregar campo para la fecha de entrega cuando se cambie el estado a resuelta para que quede en el historial del prodcuto, y cuando se vaya a entregar el  prodcuto quede impresa.
+
+Agregar costo Servicio
+Agregar login con el usuario, y alerta por producto recibido
+
+Traslado de tecnico 
+costo de la revision 
+poner despues de X numeros de dias no se hacer resposable
+
+Recepcion
+En validacion (determinar si es garantia o no)
+Enviado -- (si se envio  punto de servicio o mayorista)
+en espera de respuesta (esprando que el punto o mayorita responda) 
+La respuesta es (repararon -- o nota credito -- o prodcuto nuevo)

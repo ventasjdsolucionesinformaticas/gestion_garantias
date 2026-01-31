@@ -1,0 +1,14 @@
+name: My Local Config
+version: 1.0.0
+schema: v1
+
+models:
+  - name: DeepSeek Coder (Ollama)
+    provider: ollama
+    model: deepseek-coder:6.7b-instruct-q4_K_M
+    apiBase: http://localhost:11434
+    roles:
+      - chat
+      - edit
+      - apply
+      - summarize
