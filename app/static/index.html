@@ -31,7 +31,7 @@
               <h5 class="card-title">Registrar nueva garantía</h5>
               <form id="formGarantia">
                 <div class="mb-2"><label>Cliente</label><input id="cliente" class="form-control" required></div>
-                <div class="mb-2"><label>Cédula</label><input id="cedula" class="form-control"></div>
+                <div class="mb-2"><label>Cédula</label><input id="cedula" class="form-control" required></div>
                 <div class="mb-2"><label>Teléfono</label><input id="telefono" class="form-control" required></div>
                 <div class="mb-2"><label>Correo electrónico</label><input id="email" type="email" class="form-control" placeholder="ejemplo@correo.com"></div>
                 <div class="mb-2"><label>Tipo de producto</label>
@@ -44,9 +44,10 @@
                     <option value="otros">Otros</option>
                   </select>
                 </div>
+                <div class="mb-2" id="tipo_producto_otros_wrap" style="display:none"><label>Especifique el producto</label><input id="tipo_producto_otros" class="form-control" placeholder="Ej: Impresora, Tablet..."></div>
                 <div class="mb-2"><label>Marca</label><input id="marca" class="form-control"></div>
                 <div class="mb-2"><label>Modelo</label><input id="modelo" class="form-control"></div>
-                <div class="mb-2"><label>Serial</label><input id="serial" class="form-control" required></div>
+                <div class="mb-2"><label>Serial</label><input id="serial" class="form-control"></div>
                 <div class="mb-2"><label>Factura</label><input id="factura" class="form-control"></div>
                 <div class="mb-2"><label>Fecha compra</label><input id="fecha_compra" type="date" class="form-control"></div>
                 <div class="mb-2"><label>Fallo</label><textarea id="descripcion_falla" class="form-control" required></textarea></div>
@@ -322,18 +323,26 @@
         const a = document.createElement('a'); a.href = url; a.download = 'garantias_export.xlsx'; document.body.appendChild(a); a.click(); a.remove();
       });
 
+      // Mostrar/ocultar campo "Especifique el producto" cuando se elige Otros
+      document.getElementById('tipo_producto').addEventListener('change', function(){
+        document.getElementById('tipo_producto_otros_wrap').style.display = this.value === 'otros' ? 'block' : 'none';
+        document.getElementById('tipo_producto_otros').value = '';
+      });
+
       // create garantia
       document.getElementById('formGarantia').addEventListener('submit', async (e)=>{
         e.preventDefault();
         // Validar campos requeridos
         const cliente = document.getElementById('cliente').value.trim();
+        const cedula = document.getElementById('cedula').value.trim();
         const telefono = document.getElementById('telefono').value.trim();
-        const tipoProducto = document.getElementById('tipo_producto').value;
-        const serial = document.getElementById('serial').value.trim();
+        const tipoProductoSel = document.getElementById('tipo_producto').value;
+        const tipoProductoOtros = document.getElementById('tipo_producto_otros').value.trim();
+        const tipoProducto = (tipoProductoSel === 'otros' && tipoProductoOtros) ? tipoProductoOtros : tipoProductoSel;
         const descripcionFalla = document.getElementById('descripcion_falla').value.trim();
         
-        if (!cliente || !telefono || !tipoProducto || !serial || !descripcionFalla) {
-          alert('Por favor, complete todos los campos obligatorios: Cliente, Teléfono, Tipo de producto, Serial y Fallo.');
+        if (!cliente || !cedula || !telefono || !tipoProducto || !descripcionFalla) {
+          alert('Por favor, complete todos los campos obligatorios: Cliente, Cédula, Teléfono, Tipo de producto y Fallo.');
           return;
         }
         
@@ -342,10 +351,10 @@
         fd.append('cedula', document.getElementById('cedula').value);
         fd.append('telefono', document.getElementById('telefono').value);
         fd.append('email', document.getElementById('email').value);
-        fd.append('tipo_producto', document.getElementById('tipo_producto').value);
+        fd.append('tipo_producto', tipoProducto);
         fd.append('marca', document.getElementById('marca').value);
         fd.append('modelo', document.getElementById('modelo').value);
-        fd.append('serial', document.getElementById('serial').value);
+        fd.append('serial', document.getElementById('serial').value || '');
         fd.append('factura', document.getElementById('factura').value);
         fd.append('fecha_compra', document.getElementById('fecha_compra').value);
         fd.append('descripcion_falla', document.getElementById('descripcion_falla').value);

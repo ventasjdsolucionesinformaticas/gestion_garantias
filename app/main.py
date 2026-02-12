@@ -313,13 +313,13 @@ async def subir_logo_empresa(logo: UploadFile = File(...), token: str = Header(N
 @app.post("/api/garantias")
 async def crear_garantia_api(
     cliente: str = Form(...),
-    cedula: Optional[str] = Form(None),
+    cedula: str = Form(...),
     telefono: str = Form(...),
     email: Optional[str] = Form(None),
     tipo_producto: str = Form(...),
     marca: Optional[str] = Form(None),
     modelo: Optional[str] = Form(None),
-    serial: str = Form(...),
+    serial: Optional[str] = Form(None),
     factura: Optional[str] = Form(None),
     fecha_compra: Optional[str] = Form(None),
     descripcion_falla: str = Form(...),
