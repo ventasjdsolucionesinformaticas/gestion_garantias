@@ -3,7 +3,6 @@ Agregar costo Servicio
 Agregar login con el usuario, y alerta por producto recibido
 
 Traslado de tecnico 
-costo de la revision 
 poner despues de X numeros de dias no se hacer resposable
 
 Recepcion
@@ -15,11 +14,28 @@ La respuesta es (repararon -- o nota credito -- o prodcuto nuevo)
 EL PRESENTE DOCUMENTO NO SIGNIFICA QUE ACEPTAMOS LA GARANTIA SIGNIFICA QUE ESTAMOS RECIBIENDO EL EQUIPO PARA REVISARLO Y CONFIRMAR SI APLICA O NO DICHA GARANTIA. despues de 30 dias apartir de la fecha, se cobrara bodegajea razon de quinientos pesos ($500)por dia.Transcurridos 90 dias. Se considera que el dispositivo ha sido abandonado. En caso de perdida o daño por fuerz mayor no se respondera por el mismo.
 
 Exponer al puerto 8000
-poner cedula obligatorio
-Tipo producto obligatorio en otros poner celda para agregar un producto
-Quitar serial como obligatorio
-poner mas largo listado garantias
-asignar garantia a un usuario y poder
+poner cedula obligatorio: OK
+Quitar serial como obligatorio:OK
+Tipo producto obligatorio, OK
+cuando se seleccione el producto otros agregar una celda vacia para agregar un producto que no es en el listado OK
+
+
+asignar garantia a un usuario.
 
 Limpiar BD
 docker exec -it garantias_app_v3_4 python -c "import sqlite3; c=sqlite3.connect('/app/data/garantias.db'); c.execute('DELETE FROM comentarios'); c.execute('DELETE FROM garantias'); c.commit(); c.close(); print('Listo: garantías y comentarios borrados.')"
+
+git add.
+git commit -m "Funcional febrero 14"
+git push -u origin main
+
+# 1. Ver historial de commits
+git log --oneline
+
+# 2. Copiar el hash del commit donde quieres volver (ej: abc1234)
+
+# 3. Volver a ese commit (descarta todo cambio posterior)
+git reset --hard abc1234
+
+# 4. Si ya hiciste push, fuerza la actualización en remote
+git push origin main --force
