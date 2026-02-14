@@ -495,32 +495,37 @@ def generar_recibo(gid: int, token: str = Header(None), db: Session = Depends(ge
     content = []
     
     # Header con logo y datos de empresa lado a lado
-    if config.logo_path or (config.nombre_empresa or config.telefono or config.email or config.direccion or config.ciudad or config.nit):
-        logo_cell = []
-        if config.logo_path:
+    logo_cell = []
+    company_info_paragraph = []
+    
+    if config.logo_path and config.logo_path is not None:
+        try:
             logo_path = os.path.join(os.getcwd(), config.logo_path.lstrip('/'))
             if os.path.exists(logo_path):
                 logo = Image(logo_path, width=1*inch, height=1*inch)
                 logo_cell.append(logo)
+        except Exception as e:
+            pass  # Ignorar error si no se puede cargar logo
 
-        company_info_text = []
-        if config.nombre_empresa:
-            company_info_text.append(config.nombre_empresa)
-        if config.telefono:
-            company_info_text.append(f"Tel: {config.telefono}")
-        if config.email:
-            company_info_text.append(config.email)
-        if config.direccion:
-            company_info_text.append(config.direccion)
-        if config.ciudad:
-            company_info_text.append(config.ciudad)
-        if config.nit:
-            company_info_text.append(f"NIT: {config.nit}")
-        
-        company_info_paragraph = []
-        if company_info_text:
-            company_info_paragraph = [Paragraph("<br/>".join(company_info_text), small_style)]
-        
+    company_info_text = []
+    if config.nombre_empresa:
+        company_info_text.append(config.nombre_empresa)
+    if config.telefono:
+        company_info_text.append(f"Tel: {config.telefono}")
+    if config.email:
+        company_info_text.append(config.email)
+    if config.direccion:
+        company_info_text.append(config.direccion)
+    if config.ciudad:
+        company_info_text.append(config.ciudad)
+    if config.nit:
+        company_info_text.append(f"NIT: {config.nit}")
+    
+    if company_info_text:
+        company_info_paragraph = [Paragraph("<br/>".join(company_info_text), small_style)]
+    
+    # Solo crear tabla de header si hay algo que mostrar
+    if logo_cell or company_info_paragraph:
         # Ancho total disponible para contenido (half_letter ancho - leftMargin - rightMargin)
         available_width = half_letter[0] - (doc.leftMargin + doc.rightMargin)
         
@@ -529,21 +534,25 @@ def generar_recibo(gid: int, token: str = Header(None), db: Session = Depends(ge
         logo_width = 1.0 * inch 
         info_width = available_width - logo_width - 0.1*inch
         
-        header_table_data = [[logo_cell, company_info_paragraph]]
+        # Asegurar que logo_cell y company_info_paragraph estén listos para la tabla
+        logo_cell_for_table = logo_cell if logo_cell else []
+        info_cell_for_table = company_info_paragraph if company_info_paragraph else [Paragraph("", small_style)]
+        
+        header_table_data = [[logo_cell_for_table, info_cell_for_table]]
         
         header_table = Table(header_table_data, colWidths=[logo_width, info_width], hAlign='LEFT')
         header_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('TOPPADDING', (1, 0), (1, 0), 0.1*inch), # Ajustar padding superior de la celda de info empresa
+            ('TOPPADDING', (1, 0), (1, 0), 0.1*inch),
             ('LEFTPADDING', (0, 0), (-1, -1), 0),
             ('RIGHTPADDING', (0, 0), (-1, -1), 0),
             ('TOPPADDING', (0, 0), (0, -1), 0),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-            ('ALIGN', (0, 0), (0, -1), 'LEFT'), # Alinear logo a la izquierda
-            ('ALIGN', (1, 0), (1, -1), 'LEFT'), # Alinear info empresa a la izquierda dentro de su celda
+            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+            ('ALIGN', (1, 0), (1, -1), 'LEFT'),
         ]))
         content.append(header_table)
-        content.append(Spacer(1, 2)) # Reducir aún más el espacio después del header
+        content.append(Spacer(1, 2))
     
     # Título
     content.append(Spacer(1, 8))
@@ -584,25 +593,27 @@ def generar_recibo(gid: int, token: str = Header(None), db: Session = Depends(ge
     
     # Crear tabla
     table = Table(data, colWidths=[1.5*inch, 3.5*inch])  # Reducido para media carta
-    table.setStyle(TableStyle([
+    
+    # Construir estilos dinámicamente basado en el número real de filas
+    table_styles = [
         ('BACKGROUND', (0, 0), (-1, -1), colors.white),
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),  # Reducido aún más
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('TOPPADDING', (0, 0), (-1, -1), 3),
         ('LEFTPADDING', (0, 0), (-1, -1), 3),
         ('RIGHTPADDING', (0, 0), (-1, -1), 3),
-        # Bordes sutiles
         ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
-        # Fondos alternos
-        ('BACKGROUND', (0, 1), (-1, 1), colors.whitesmoke),
-        ('BACKGROUND', (0, 3), (-1, 3), colors.whitesmoke),
-        ('BACKGROUND', (0, 5), (-1, 5), colors.whitesmoke),
-        ('BACKGROUND', (0, 7), (-1, 7), colors.whitesmoke),
-        ('BACKGROUND', (0, 9), (-1, 9), colors.whitesmoke),
-    ]))
+    ]
+    
+    # Agregar fondos alternos solo para filas que existen
+    num_rows = len(data)
+    for i in range(1, num_rows, 2):  # Filas impares con fondo gris
+        table_styles.append(('BACKGROUND', (0, i), (-1, i), colors.whitesmoke))
+    
+    table.setStyle(TableStyle(table_styles))
     
     content.append(table)
     content.append(Spacer(1, 6))

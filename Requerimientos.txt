@@ -25,8 +25,8 @@ asignar garantia a un usuario.
 Limpiar BD
 docker exec -it garantias_app_v3_4 python -c "import sqlite3; c=sqlite3.connect('/app/data/garantias.db'); c.execute('DELETE FROM comentarios'); c.execute('DELETE FROM garantias'); c.commit(); c.close(); print('Listo: garantías y comentarios borrados.')"
 
-git add.
-git commit -m "Funcional febrero 14"
+git add .
+git commit -m "Funcional con empresa dinamica"
 git push -u origin main
 
 # 1. Ver historial de commits
@@ -39,3 +39,8 @@ git reset --hard abc1234
 
 # 4. Si ya hiciste push, fuerza la actualización en remote
 git push origin main --force
+
+
+docker-compose down
+docker-compose build --no-cache
+docker-compose up -d
