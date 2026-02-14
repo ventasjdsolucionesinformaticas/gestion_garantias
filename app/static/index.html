@@ -52,6 +52,11 @@
                 <div class="mb-2"><label>Fecha compra</label><input id="fecha_compra" type="date" class="form-control"></div>
                 <div class="mb-2"><label>Fallo</label><textarea id="descripcion_falla" class="form-control" required></textarea></div>
                 <div class="mb-2"><label>Imagen (opcional)</label><input id="imagen" type="file" class="form-control"></div>
+                <div class="mb-2"><label>Asignar a usuario</label>
+                  <select id="usuario_asignado" class="form-control">
+                    <option value="">Sin asignar</option>
+                  </select>
+                </div>
                 <button type="submit" class="btn btn-primary">Registrar e Imprimir Recibo</button><span id="msg" class="ms-2"></span>
               </form>
             </div>
@@ -77,7 +82,7 @@
               </div>
               <div class="table-responsive" style="max-height:60vh; overflow:auto">
                 <table class="table table-striped" id="tablaGarantias">
-                  <thead><tr><th>ID</th><th>Cliente</th><th>Cédula</th><th>Teléfono</th><th>Email</th><th>Producto</th><th>Falla</th><th>Estado</th><th>Acciones</th></tr></thead>
+                  <thead><tr><th>ID</th><th>Cliente</th><th>Cédula</th><th>Teléfono</th><th>Email</th><th>Producto</th><th>Usuario</th><th>Falla</th><th>Estado</th><th>Acciones</th></tr></thead>
                   <tbody></tbody>
                 </table>
               </div>
@@ -193,7 +198,7 @@
               <div class="mb-2"><input id="comentario_file" type="file" class="form-control"></div>
               <div class="d-flex justify-content-between">
                 <select id="cambiar_estado" class="form-select" style="width:200px"><option value="Recibido">Recibido</option><option value="En Validacion">En Validación</option><option value="Enviado">Enviado</option><option value="Esperando Respuesta">Esperando Respuesta</option><option value="Resuelta">Resuelta</option><option value="Rechazada">Rechazada</option></select>
-                <div><button type="button" id="btnPrintRecibo" class="btn btn-info me-2">🖨️ Imprimir Recibo</button><button type="button" id="btnAddComment" class="btn btn-primary me-2">Agregar comentario</button> <button type="button" id="btnChangeState" class="btn btn-secondary">Cambiar estado</button></div>
+                <div><button type="button" id="btnPrintRecibo" class="btn btn-info me-2">🖨️ Imprimir Recibo</button><button type="button" id="btnAddComment" class="btn btn-primary me-2">Agregar comentario</button> <button type="button" id="btnChangeState" class="btn btn-secondary me-2">Cambiar estado</button><button type="button" id="btnAsignarUsuario" class="btn btn-warning">Asignar a Usuario</button></div>
               </div>
             </form>
           </div>
@@ -232,6 +237,30 @@
                 <button type="button" id="btnDeleteUser" class="btn btn-danger">Eliminar Usuario</button>
               </div>
               <div id="editUserMsg" class="mt-2"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Asignar Usuario a Garantía -->
+    <div class="modal fade" id="asignarUsuarioModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Asignar a Usuario</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <form id="formAsignarUsuario">
+              <div class="mb-2">
+                <label>Seleccionar Usuario</label>
+                <select id="usuario_reasignar" class="form-control" required>
+                  <option value="" disabled selected>Seleccionar usuario...</option>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-primary">Asignar</button>
+              <div id="msgAsignar" class="mt-2"></div>
             </form>
           </div>
         </div>
@@ -292,6 +321,7 @@
           cargarEmpresaConfig();
         }
         document.getElementById('appGarantias').style.display='block';
+        cargarUsuariosSelect();
         cargarGarantias();
         actualizarTituloEmpresa();
       });
@@ -309,12 +339,44 @@
           }
           document.getElementById('loginModal').style.display='none';
           document.getElementById('appGarantias').style.display='block';
+          cargarUsuariosSelect();
           cargarGarantias();
           actualizarTituloEmpresa();
         }
       });
 
       document.getElementById('btnLogout').addEventListener('click', ()=>{ sessionStorage.clear(); location.reload(); });
+
+      // Cargar usuarios en los selects
+      async function cargarUsuariosSelect(){
+        const res = await api('/usuarios-lista');
+        if(res.ok){
+          const usuarios = await res.json();
+          const selectAsignado = document.getElementById('usuario_asignado');
+          const selectReasignar = document.getElementById('usuario_reasignar');
+          
+          // Limpiar opciones existentes (excepto la primera)
+          while(selectAsignado.options.length > 1) selectAsignado.remove(1);
+          if(selectReasignar) {
+            while(selectReasignar.options.length > 1) selectReasignar.remove(1);
+          }
+          
+          // Agregar usuarios
+          usuarios.forEach(u => {
+            const option = document.createElement('option');
+            option.value = u.username;
+            option.textContent = u.username + ' (' + u.rol + ')';
+            selectAsignado.appendChild(option);
+            
+            if(selectReasignar) {
+              const option2 = document.createElement('option');
+              option2.value = u.username;
+              option2.textContent = u.username + ' (' + u.rol + ')';
+              selectReasignar.appendChild(option2);
+            }
+          });
+        }
+      }
 
       // export
       document.getElementById('btnExport').addEventListener('click', async ()=>{
@@ -358,6 +420,7 @@
         fd.append('factura', document.getElementById('factura').value);
         fd.append('fecha_compra', document.getElementById('fecha_compra').value);
         fd.append('descripcion_falla', document.getElementById('descripcion_falla').value);
+        fd.append('usuario_asignado', document.getElementById('usuario_asignado').value);
         const file = document.getElementById('imagen').files[0]; if(file) fd.append('imagen', file);
         
         const res = await api('/garantias', {method:'POST', body: fd});
@@ -404,7 +467,7 @@
         data.filter(g => {
           if (filtro && g.estado !== filtro) return false;
           if (search) {
-            const text = `${g.id} ${g.cliente} ${g.cedula||''} ${g.telefono||''} ${g.email||''} ${g.tipo_producto||''} ${g.marca||''} ${g.modelo||''} ${g.serial||''} ${g.factura||''} ${g.fecha_compra||''} ${g.descripcion_falla||''} ${g.estado}`.toLowerCase();
+            const text = `${g.id} ${g.cliente} ${g.cedula||''} ${g.telefono||''} ${g.email||''} ${g.tipo_producto||''} ${g.marca||''} ${g.modelo||''} ${g.serial||''} ${g.factura||''} ${g.fecha_compra||''} ${g.descripcion_falla||''} ${g.usuario_asignado||''} ${g.estado}`.toLowerCase();
             if (!text.includes(search)) return false;
           }
           return true;
@@ -413,7 +476,7 @@
           let badge = '<span class="badge badge-pendiente">' + (g.estado || 'Recibido') + '</span>';
           if(g.estado==='Resuelta') badge = '<span class="badge badge-resuelta">Resuelta</span>';
           if(g.estado==='Rechazada') badge = '<span class="badge badge-rechazada">Rechazada</span>';
-          tr.innerHTML = `<td>${g.id}</td><td>${g.cliente}</td><td>${g.cedula||''}</td><td>${g.telefono||''}</td><td>${g.email||''}</td><td>${g.tipo_producto||''} ${g.marca?' - '+g.marca:''} ${g.modelo?' - '+g.modelo:''} ${g.serial?' - '+g.serial:''}</td><td>${g.descripcion_falla||''}</td><td>${badge}</td><td><button class="btn btn-sm btn-outline-primary" onclick="verDetalle(${g.id})">Ver</button> <button class="btn btn-sm btn-outline-success" onclick="abrirComentario(${g.id})">Comentar</button> <button class="btn btn-sm btn-outline-info" onclick="imprimirRecibo(${g.id})">🖨️</button></td>`;
+          tr.innerHTML = `<td>${g.id}</td><td>${g.cliente}</td><td>${g.cedula||''}</td><td>${g.telefono||''}</td><td>${g.email||''}</td><td>${g.tipo_producto||''} ${g.marca?' - '+g.marca:''} ${g.modelo?' - '+g.modelo:''} ${g.serial?' - '+g.serial:''}</td><td>${g.usuario_asignado||'-'}</td><td>${g.descripcion_falla||''}</td><td>${badge}</td><td><button class="btn btn-sm btn-outline-primary" onclick="verDetalle(${g.id})">Ver</button> <button class="btn btn-sm btn-outline-success" onclick="abrirComentario(${g.id})">Comentar</button> <button class="btn btn-sm btn-outline-info" onclick="imprimirRecibo(${g.id})">🖨️</button></td>`;
           tbody.appendChild(tr);
         });
       }
@@ -494,9 +557,9 @@
 
       // ver detalle (muestra modal una vez)
       async function verDetalle(id){
-        const res = await api('/garantias'); const data = await res.json();
-        const g = data.find(x=>x.id===id);
-        if(!g) return alert('No encontrado');
+        const res = await api(`/garantias/${id}`);
+        if(!res.ok) return alert('No encontrado');
+        const g = await res.json();
         document.getElementById('detailBody').innerHTML = `<p><strong>ID:</strong> ${g.id}</p><p><strong>Cliente:</strong> ${g.cliente}</p><p><strong>Cédula:</strong> ${g.cedula||''}</p><p><strong>Teléfono:</strong> ${g.telefono||''}</p><p><strong>Correo:</strong> ${g.email||'—'}</p><p><strong>Tipo de producto:</strong> ${g.tipo_producto||''}</p><p><strong>Marca:</strong> ${g.marca||''}</p><p><strong>Modelo:</strong> ${g.modelo||''}</p><p><strong>Serial:</strong> ${g.serial||''}</p><p><strong>Falla:</strong> ${g.descripcion_falla||''}</p><p><strong>Estado:</strong> <span id="estadoDetalle">${g.estado}</span></p>${g.imagen_path?`<p><a href='${g.imagen_path}' target='_blank'>Ver imagen</a></p>`:''}`;
         const selEstado = document.getElementById('cambiar_estado');
         selEstado.value = (g.estado && selEstado.querySelector('option[value="'+g.estado+'"]')) ? g.estado : 'Recibido';
@@ -531,6 +594,27 @@
         const fd = new FormData(); fd.append('estado', nuevo);
         const res = await api(`/garantias/${gid}/estado`, {method:'PATCH', body: fd});
         if(res.ok){ document.getElementById('estadoDetalle').innerText = nuevo; cargarGarantias(); } else { const j=await res.json().catch(()=>({detail:'error'})); alert(j.detail||'Error al cambiar estado'); }
+      });
+
+      // handler para asignar usuario
+      document.getElementById('btnAsignarUsuario').addEventListener('click', async ()=>{
+        const asigModal = new bootstrap.Modal(document.getElementById('asignarUsuarioModal'));
+        asigModal.show();
+      });
+
+      document.getElementById('formAsignarUsuario').addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const gid = detailModalEl.dataset.gid; if(!gid) return;
+        const usuario = document.getElementById('usuario_reasignar').value;
+        const fd = new FormData(); fd.append('usuario_asignado', usuario);
+        const res = await api(`/garantias/${gid}/asignar`, {method:'PUT', body: fd});
+        if(res.ok){ 
+          alert('Usuario asignado');
+          bootstrap.Modal.getInstance(document.getElementById('asignarUsuarioModal')).hide();
+          document.getElementById('formAsignarUsuario').reset();
+          cargarGarantias();
+          verDetalle(gid);
+        } else { const j=await res.json().catch(()=>({detail:'error'})); alert(j.detail||'Error'); }
       });
 
       // handler para imprimir recibo

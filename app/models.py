@@ -19,6 +19,7 @@ class Garantia(Base):
     descripcion_falla = Column(Text, nullable=True)
     imagen_path = Column(String, nullable=True)
     estado = Column(String, default="Recibido")
+    usuario_asignado = Column(String, nullable=True, index=True)
     fecha_registro = Column(DateTime, default=datetime.utcnow)
     comentarios = relationship("Comentario", back_populates="garantia", cascade="all, delete-orphan")
 

@@ -18,15 +18,16 @@ poner cedula obligatorio: OK
 Quitar serial como obligatorio:OK
 Tipo producto obligatorio, OK
 cuando se seleccione el producto otros agregar una celda vacia para agregar un producto que no es en el listado OK
-
-
-asignar garantia a un usuario.
+asignar garantia a un usuario. OK
 
 Limpiar BD
+docker exec -it garantias_app_v3_4 rm /app/data/garantias.db
+docker-compose restart app
 docker exec -it garantias_app_v3_4 python -c "import sqlite3; c=sqlite3.connect('/app/data/garantias.db'); c.execute('DELETE FROM comentarios'); c.execute('DELETE FROM garantias'); c.commit(); c.close(); print('Listo: garantías y comentarios borrados.')"
 
+
 git add .
-git commit -m "Funcional con empresa dinamica"
+git commit -m "Funcional bug impresion corregido"
 git push -u origin main
 
 # 1. Ver historial de commits

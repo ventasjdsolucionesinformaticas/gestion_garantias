@@ -112,6 +112,13 @@ def init_empresa_config():
 init_admin()
 init_empresa_config()
 
+# USERS - endpoint público para obtener lista de usuarios (para selects)
+@app.get("/api/usuarios-lista")
+def listar_usuarios_publico(token: str = Header(None), db: Session = Depends(get_db)):
+    verify_token(token)  # Solo verificar que tenga token válido, sin restricción de rol
+    users = db.query(Usuario).all()
+    return [{"id": u.id, "username": u.username, "rol": u.rol} for u in users]
+
 @app.post("/api/login")
 def login(data: LoginIn, db: Session = Depends(get_db)):
     user = db.query(Usuario).filter(Usuario.username==data.username).first()
@@ -323,6 +330,7 @@ async def crear_garantia_api(
     factura: Optional[str] = Form(None),
     fecha_compra: Optional[str] = Form(None),
     descripcion_falla: str = Form(...),
+    usuario_asignado: Optional[str] = Form(None),
     imagen: Optional[UploadFile] = File(None),
     token: str = Header(None),
     db: Session = Depends(get_db)
@@ -336,19 +344,30 @@ async def crear_garantia_api(
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(imagen.file, buffer)
         imagen_path = f"/uploads/{filename}"
-    nueva = Garantia(cliente=cliente, cedula=cedula, telefono=telefono, email=email, tipo_producto=tipo_producto, marca=marca, modelo=modelo, serial=serial, factura=factura, fecha_compra=fecha_compra, descripcion_falla=descripcion_falla, imagen_path=imagen_path, estado="Recibido")
+    nueva = Garantia(cliente=cliente, cedula=cedula, telefono=telefono, email=email, tipo_producto=tipo_producto, marca=marca, modelo=modelo, serial=serial, factura=factura, fecha_compra=fecha_compra, descripcion_falla=descripcion_falla, imagen_path=imagen_path, usuario_asignado=usuario_asignado, estado="Recibido")
     db.add(nueva)
     db.commit()
     db.refresh(nueva)
-    return {"id": nueva.id, "cliente": nueva.cliente, "cedula": nueva.cedula, "telefono": nueva.telefono, "email": nueva.email, "tipo_producto": nueva.tipo_producto, "marca": nueva.marca, "modelo": nueva.modelo, "serial": nueva.serial, "estado": nueva.estado, "fecha_registro": nueva.fecha_registro.isoformat()}
+    return {"id": nueva.id, "cliente": nueva.cliente, "cedula": nueva.cedula, "telefono": nueva.telefono, "email": nueva.email, "tipo_producto": nueva.tipo_producto, "marca": nueva.marca, "modelo": nueva.modelo, "serial": nueva.serial, "usuario_asignado": nueva.usuario_asignado, "estado": nueva.estado, "fecha_registro": nueva.fecha_registro.isoformat()}
+
+@app.get("/api/garantias/{gid}")
+def obtener_garantia_api(gid: int, db: Session = Depends(get_db), token: str = Header(None)):
+    verify_token(token)  # Solo verificar token, sin restricción de permisos para leer detalles
+    garantia = db.query(Garantia).filter(Garantia.id == gid).first()
+    if not garantia:
+        raise HTTPException(status_code=404, detail="Garantía no encontrada")
+    return {"id": garantia.id, "cliente": garantia.cliente, "cedula": garantia.cedula, "telefono": garantia.telefono, "email": garantia.email, "tipo_producto": garantia.tipo_producto, "marca": garantia.marca, "modelo": garantia.modelo, "serial": garantia.serial, "factura": garantia.factura, "fecha_compra": garantia.fecha_compra, "descripcion_falla": garantia.descripcion_falla, "imagen_path": garantia.imagen_path, "usuario_asignado": garantia.usuario_asignado, "estado": garantia.estado, "fecha_registro": garantia.fecha_registro.isoformat()}
 
 @app.get("/api/garantias")
 def listar_garantias_api(db: Session = Depends(get_db), token: str = Header(None)):
-    verify_token(token)
-    items = db.query(Garantia).order_by(Garantia.id.desc()).all()
+    username = verify_token(token)
+    
+    # Todos los usuarios (incuyendo admin) ven solo las asignadas a ellos
+    items = db.query(Garantia).filter(Garantia.usuario_asignado == username).order_by(Garantia.id.desc()).all()
+    
     out = []
     for g in items:
-        out.append({"id": g.id, "cliente": g.cliente, "cedula": g.cedula, "telefono": g.telefono, "email": g.email, "tipo_producto": g.tipo_producto, "marca": g.marca, "modelo": g.modelo, "serial": g.serial, "factura": g.factura, "fecha_compra": g.fecha_compra, "descripcion_falla": g.descripcion_falla, "imagen_path": g.imagen_path, "estado": g.estado, "fecha_registro": g.fecha_registro.isoformat()})
+        out.append({"id": g.id, "cliente": g.cliente, "cedula": g.cedula, "telefono": g.telefono, "email": g.email, "tipo_producto": g.tipo_producto, "marca": g.marca, "modelo": g.modelo, "serial": g.serial, "factura": g.factura, "fecha_compra": g.fecha_compra, "descripcion_falla": g.descripcion_falla, "imagen_path": g.imagen_path, "usuario_asignado": g.usuario_asignado, "estado": g.estado, "fecha_registro": g.fecha_registro.isoformat()})
     return out
 
 # comentarios con adjunto
@@ -409,6 +428,24 @@ def export_garantias(token: str = Header(None), db: Session = Depends(get_db)):
     out_path = os.path.join("data", f"garantias_export_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.xlsx")
     df.to_excel(out_path, index=False)
     return FileResponse(out_path, filename=os.path.basename(out_path), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+# REASIGNAR USUARIO
+@app.put("/api/garantias/{gid}/asignar")
+def reasignar_usuario(gid: int, usuario_asignado: str = Form(...), token: str = Header(None), db: Session = Depends(get_db)):
+    verify_token(token)
+    garantia = db.query(Garantia).filter(Garantia.id == gid).first()
+    if not garantia:
+        raise HTTPException(status_code=404, detail="Garantía no encontrada")
+    
+    # Verificar que el usuario exista
+    usuario = db.query(Usuario).filter(Usuario.username == usuario_asignado).first()
+    if not usuario:
+        raise HTTPException(status_code=400, detail="Usuario no existe")
+    
+    garantia.usuario_asignado = usuario_asignado
+    db.commit()
+    return {"mensaje": "Usuario asignado exitosamente", "usuario_asignado": usuario_asignado}
 
 # RECIBO DE GARANTÍA
 @app.get("/api/garantias/{gid}/recibo")
