@@ -1,7 +1,7 @@
 services:
   app:
     build: ./app
-    container_name: garantias_app_v3_4
+    container_name: garantias_app_v3_4_git
     ports:
       - "8000:8000"
     volumes:
