@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recibo de Garantía - PC TINTAS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        body {
+            background-color: #f0f4f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 15px;
+        }
+        .recibo-container {
+            max-width: 580px;
+            width: 100%;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0, 20, 40, 0.12);
+            border: 1px solid #e9ecf0;
+        }
+        /* Header con los colores de JD Soluciones */
+        .header {
+            background: linear-gradient(145deg, #0a2540 0%, #1f3a5f 100%);
+            color: white;
+            padding: 20px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 4px solid #ffb421;
+        }
+        .logo-area h1 {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            line-height: 1.2;
+        }
+        .logo-area span {
+            color: #ffb421;
+        }
+        .logo-area p {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 3px;
+        }
+        .badge-recibo {
+            background-color: #ffb421;
+            color: #0a2540;
+            font-weight: 800;
+            font-size: 14px;
+            padding: 6px 14px;
+            border-radius: 50px;
+            letter-spacing: 0.5px;
+            border: 1px solid #e5a61c;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+        }
+        /* Información de contacto compacta */
+        .contact-info {
+            display: flex;
+            flex-wrap: wrap;
+            background-color: #f8fafd;
+            padding: 12px 20px;
+            gap: 15px 25px;
+            font-size: 13px;
+            color: #2c3e50;
+            border-bottom: 1px dashed #d0d9e3;
+        }
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .contact-item strong {
+            color: #1f3a5f;
+            min-width: 35px;
+        }
+        .contact-item span {
+            color: #3a5670;
+        }
+        /* NIT destacado */
+        .nit-box {
+            margin-left: auto;
+            background-color: #e9eff7;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 12px;
+            color: #0a2540;
+        }
+        /* Contenido principal más compacto */
+        .content {
+            padding: 20px 25px;
+        }
+        /* Número de recibo y fecha */
+        .recibo-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            background-color: #f2f6fc;
+            padding: 12px 18px;
+            border-radius: 14px;
+            border-left: 4px solid #ffb421;
+        }
+        .recibo-numero {
+            font-size: 22px;
+            font-weight: 700;
+            color: #0a2540;
+        }
+        .recibo-numero small {
+            font-size: 14px;
+            font-weight: 400;
+            color: #5e7a97;
+            margin-left: 8px;
+        }
+        .recibo-fecha {
+            text-align: right;
+        }
+        .recibo-fecha .fecha {
+            font-weight: 600;
+            color: #1f3a5f;
+            font-size: 15px;
+        }
+        .recibo-fecha .hora {
+            color: #6b7f99;
+            font-size: 13px;
+            margin-top: 2px;
+        }
+        /* Tarjeta de cliente y producto - estilo compacto */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+        .info-card {
+            background-color: #ffffff;
+            border: 1px solid #e2e9f2;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+        }
+        .info-card-header {
+            background-color: #f0f5fb;
+            padding: 10px 14px;
+            border-bottom: 1px solid #d9e4ee;
+            font-weight: 600;
+            color: #0f2b4f;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .info-card-body {
+            padding: 12px 14px;
+        }
+        .info-row {
+            display: flex;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .info-row:last-child {
+            margin-bottom: 0;
+        }
+        .info-label {
+            width: 95px;
+            color: #657e9c;
+            font-weight: 500;
+        }
+        .info-value {
+            flex: 1;
+            color: #0a2540;
+            font-weight: 600;
+            word-break: break-word;
+        }
+        /* Estado con color */
+        .estado-badge {
+            display: inline-block;
+            background-color: #fff3d5;
+            color: #a86d0b;
+            font-weight: 700;
+            padding: 4px 14px;
+            border-radius: 30px;
+            font-size: 13px;
+            border: 1px solid #f7d98c;
+        }
+        .estado-badge::before {
+            content: "●";
+            margin-right: 5px;
+            font-size: 10px;
+            color: #ffb421;
+        }
+        /* Producto destacado */
+        .producto-card {
+            background-color: #fafcfe;
+            border: 1px solid #cfddee;
+            border-radius: 16px;
+            padding: 14px 18px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 3px 8px rgba(0,32,64,0.03);
+        }
+        .producto-icon {
+            background-color: #0a2540;
+            color: #ffb421;
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+        .producto-details {
+            flex: 1;
+        }
+        .producto-label {
+            color: #617e9e;
+            font-size: 13px;
+            margin-bottom: 2px;
+        }
+        .producto-nombre {
+            font-weight: 700;
+            color: #0f2b4f;
+            font-size: 18px;
+        }
+        /* Fallo reportado */
+        .fallo-section {
+            background-color: #fff8e7;
+            border-radius: 16px;
+            padding: 14px 18px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ffb421;
+        }
+        .fallo-title {
+            color: #a05902;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .fallo-text {
+            color: #1f3a5f;
+            font-size: 15px;
+            font-weight: 500;
+            background-color: white;
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: 1px solid #ffd98c;
+        }
+        /* Términos legales - versión compacta */
+        .legal-section {
+            background-color: #f2f6fc;
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin: 15px 0 12px;
+            font-size: 11px;
+            color: #3e5a78;
+            line-height: 1.6;
+            border: 1px solid #cbd6e6;
+            text-align: justify;
+        }
+        .legal-section strong {
+            color: #b65103;
+            font-weight: 700;
+        }
+        /* Firma */
+        .firma-area {
+            margin-top: 15px;
+            padding-top: 12px;
+            border-top: 2px dashed #b2c7de;
+            text-align: center;
+        }
+        .firma-line {
+            font-size: 14px;
+            color: #2f4b70;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        .firma-line span {
+            font-weight: 300;
+            color: #6a7f9b;
+        }
+        /* Footer minimalista */
+        .footer-mini {
+            background-color: #f8fafc;
+            padding: 14px 20px;
+            border-top: 1px solid #dbe3ed;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: #5f7996;
+        }
+        .footer-mini strong {
+            color: #0a2540;
+        }
+        .footer-mini span {
+            color: #ffb421;
+        }
+    </style>
+</head>
+<body>
+    <div class="recibo-container">
+        <!-- HEADER -->
+        <div class="header">
+            <div class="logo-area">
+                <h1>{{nombre_empresa}}</h1>
+                <p>Tecnología con respaldo</p>
+            </div>
+            <div class="badge-recibo">RECIBO #{{numero_recibo}}</div>
+        </div>
+        
+        <!-- CONTACTO COMPACTO -->
+        <div class="contact-info">
+            <div class="contact-item">
+                <strong>📞</strong>
+                <span>{{telefono}}</span>
+            </div>
+            <div class="contact-item">
+                <strong>✉️</strong>
+                <span>{{email}}</span>
+            </div>
+            <div class="contact-item">
+                <strong>📍</strong>
+                <span>{{direccion}}</span>
+            </div>
+            <div class="nit-box">
+                NIT: {{nit}}
+            </div>
+        </div>
+        
+        <!-- CONTENIDO PRINCIPAL -->
+        <div class="content">
+            <!-- NÚMERO Y FECHA -->
+            <div class="recibo-header">
+                <div class="recibo-numero">
+                    #{{numero_recibo}} <small>Recibo de Servicio</small>
+                </div>
+                <div class="recibo-fecha">
+                    <div class="fecha">{{fecha}}</div>
+                    <div class="hora">{{hora}}</div>
+                </div>
+            </div>
+            
+            <!-- GRID CLIENTE / USUARIO -->
+            <div class="info-grid">
+                <!-- Cliente -->
+                <div class="info-card">
+                    <div class="info-card-header">
+                        <span>👤</span> CLIENTE
+                    </div>
+                    <div class="info-card-body">
+                        <div class="info-row">
+                            <div class="info-label">Nombre:</div>
+                            <div class="info-value">{{cliente}}</div>
+                        </div>
+                        <div class="info-row">
+                            <div class="info-label">Teléfono:</div>
+                            <div class="info-value">{{telefono_cliente}}</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Usuario/Responsable -->
+                <div class="info-card">
+                    <div class="info-card-header">
+                        <span>🔧</span> USUARIO
+                    </div>
+                    <div class="info-card-body">
+                        <div class="info-row">
+                            <div class="info-label">Responsable:</div>
+                            <div class="info-value">{{usuario}}</div>
+                        </div>
+                        <div class="info-row">
+                            <div class="info-label">Estado:</div>
+                            <div class="info-value">
+                                <span class="estado-badge">{{estado}}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- PRODUCTO (destacado) -->
+            <div class="producto-card">
+                <div class="producto-icon">🖨️</div>
+                <div class="producto-details">
+                    <div class="producto-label">Producto recibido</div>
+                    <div class="producto-nombre">{{producto}}</div>
+                </div>
+            </div>
+            
+            <!-- FALLO REPORTADO -->
+            <div class="fallo-section">
+                <div class="fallo-title">
+                    <span>⚠️</span> FALLO REPORTADO POR EL CLIENTE
+                </div>
+                <div class="fallo-text">{{fallo}}</div>
+            </div>
+            
+            <!-- TÉRMINOS LEGALES (versión compacta) -->
+            <div class="legal-section">
+                <strong>⚠️ IMPORTANTE:</strong> EL PRESENTE DOCUMENTO NO SIGNIFICA QUE ACEPTAMOS LA GARANTÍA; SIGNIFICA QUE ESTAMOS RECIBIENDO EL EQUIPO PARA REVISARLO Y CONFIRMAR SI APLICA O NO DICHA GARANTÍA. 
+                <br><br>
+                Después de 30 días a partir de la fecha, se cobrará bodegaje a razón de quinientos pesos ($500) por día. Transcurridos 90 días, se considera que el dispositivo ha sido abandonado. En caso de pérdida o daño por fuerza mayor no se responderá por el mismo.
+            </div>
+            
+            <!-- FIRMA -->
+            <div class="firma-area">
+                <div class="firma-line">______________________________</div>
+                <div class="firma-line">Firma del cliente <span></span></div>
+            </div>
+        </div>
+        
+        <!-- FOOTER MINIMALISTA -->
+        <div class="footer-mini">
+            <div><strong>{{nombre_empresa}}</strong> <span>●</span> Seguridad y Tecnologia</div>
+            <div>Recibo v4 · {{fecha}}</div>
+        </div>
+    </div>
+</body>
+</html>

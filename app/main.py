@@ -473,239 +473,56 @@ def reasignar_usuario(gid: int, usuario_asignado: str = Form(...), token: str = 
 # RECIBO DE GARANTÍA
 @app.get("/api/garantias/{gid}/recibo")
 def generar_recibo(gid: int, token: str = Header(None), db: Session = Depends(get_db)):
+    import os
+    
     username = verify_token(token)
     
     garantia = db.query(Garantia).filter(Garantia.id == gid).first()
     if not garantia:
         raise HTTPException(status_code=404, detail="Garantía no encontrada")
     
-    # Obtener configuración de empresa
     config = db.query(ConfiguracionEmpresa).first()
     if not config:
-        config = ConfiguracionEmpresa()  # Valores por defecto
+        config = ConfiguracionEmpresa()
     
-    # Obtener usuario que generó la garantía (del primer comentario o del registro)
-    usuario_registro = username  # Por defecto el usuario actual
+    # Leer plantilla HTML
+    html_path = os.path.join(os.path.dirname(__file__), "static", "adjunto.html")
+    try:
+        with open(html_path, 'r', encoding='utf-8') as f:
+            html_template = f.read()
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="Plantilla HTML no encontrada")
     
-    # Generar PDF del recibo
-    from reportlab.lib.pagesizes import letter
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
-    from reportlab.lib import colors
-    from reportlab.lib.units import inch
-    from io import BytesIO
+    # Preparar datos
+    fecha_registro = garantia.fecha_registro.strftime('%d/%m/%Y') if garantia.fecha_registro else ''
+    hora_registro = garantia.fecha_registro.strftime('%H:%M:%S') if garantia.fecha_registro else ''
+    producto = " ".join([p for p in [garantia.tipo_producto, garantia.marca, garantia.modelo] if p])
     
-    # Tamaño media carta (8.5 x 5.5 pulgadas)
-    half_letter = (8.5*inch, 5.5*inch)
+    # Reemplazos con variables {{}}
+    reemplazos = {
+        '{{numero_recibo}}': str(garantia.id),
+        '{{telefono}}': config.telefono or '',
+        '{{email}}': config.email or '',
+        '{{direccion}}': config.direccion or '',
+        '{{nit}}': config.nit or '',
+        '{{nombre_empresa}}': config.nombre_empresa or 'JD Soluciones',
+        '{{fecha}}': fecha_registro,
+        '{{hora}}': hora_registro,
+        '{{cliente}}': garantia.cliente or '',
+        '{{telefono_cliente}}': garantia.telefono or '',
+        '{{usuario}}': username or '',
+        '{{estado}}': garantia.estado or 'Recibido',
+        '{{producto}}': producto or 'Producto',
+        '{{fallo}}': garantia.descripcion_falla or '',
+    }
     
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(
-        buffer, 
-        pagesize=half_letter,
-        topMargin=0.1*inch,  # Margen superior más mínimo
-        bottomMargin=0.1*inch,
-        leftMargin=0.5*inch,
-        rightMargin=0.5*inch
-    )
-    styles = getSampleStyleSheet()
+    # Aplicar reemplazos
+    html_procesado = html_template
+    for placeholder, valor in reemplazos.items():
+        html_procesado = html_procesado.replace(placeholder, str(valor))
     
-    # Estilos personalizados
-    title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=10,
-        spaceAfter=3,
-        alignment=1  # Centrado
-    )
-    
-    subtitle_style = ParagraphStyle(
-        'CustomSubtitle',
-        parent=styles['Heading2'],
-        fontSize=14,
-        spaceAfter=20,
-        alignment=1
-    )
-    
-    small_style = ParagraphStyle(
-        'SmallText',
-        parent=styles['Normal'],
-        fontSize=9, # Aumentado de 6 a 8
-        spaceAfter=0,
-        leading=11,  # Aumentado para mejorar el interlineado
-        alignment=0  # Alinear a la izquierda para el texto de la empresa
-    )
-    
-    normal_style = styles['Normal']
-    normal_style.spaceAfter = 10
-    
-    # Estilo para política de garantía: letra muy pequeña, justificado
-    policy_style = ParagraphStyle(
-        'PolicyText',
-        parent=styles['Normal'],
-        fontSize=5,
-        leading=6,
-        alignment=4,  # 4 = JUSTIFY en ReportLab
-        spaceBefore=4,
-        spaceAfter=4,
-        leftIndent=0,
-        rightIndent=0,
-    )
-    
-    # Contenido del PDF
-    content = []
-    
-    # Header con logo y datos de empresa lado a lado
-    logo_cell = []
-    company_info_paragraph = []
-    
-    if config.logo_path and config.logo_path is not None:
-        try:
-            logo_path = os.path.join(os.getcwd(), config.logo_path.lstrip('/'))
-            if os.path.exists(logo_path):
-                logo = Image(logo_path, width=1*inch, height=1*inch)
-                logo_cell.append(logo)
-        except Exception as e:
-            pass  # Ignorar error si no se puede cargar logo
-
-    company_info_text = []
-    if config.nombre_empresa:
-        company_info_text.append(config.nombre_empresa)
-    if config.telefono:
-        company_info_text.append(f"Tel: {config.telefono}")
-    if config.email:
-        company_info_text.append(config.email)
-    if config.direccion:
-        company_info_text.append(config.direccion)
-    if config.ciudad:
-        company_info_text.append(config.ciudad)
-    if config.nit:
-        company_info_text.append(f"NIT: {config.nit}")
-    
-    if company_info_text:
-        company_info_paragraph = [Paragraph("<br/>".join(company_info_text), small_style)]
-    
-    # Solo crear tabla de header si hay algo que mostrar
-    if logo_cell or company_info_paragraph:
-        # Ancho total disponible para contenido (half_letter ancho - leftMargin - rightMargin)
-        available_width = half_letter[0] - (doc.leftMargin + doc.rightMargin)
-        
-        # Calcular anchos de columna para la tabla del encabezado
-        # Una columna para el logo, otra para la información de la empresa
-        logo_width = 1.0 * inch 
-        info_width = available_width - logo_width - 0.1*inch
-        
-        # Asegurar que logo_cell y company_info_paragraph estén listos para la tabla
-        logo_cell_for_table = logo_cell if logo_cell else []
-        info_cell_for_table = company_info_paragraph if company_info_paragraph else [Paragraph("", small_style)]
-        
-        header_table_data = [[logo_cell_for_table, info_cell_for_table]]
-        
-        header_table = Table(header_table_data, colWidths=[logo_width, info_width], hAlign='LEFT')
-        header_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('TOPPADDING', (1, 0), (1, 0), 0.1*inch),
-            ('LEFTPADDING', (0, 0), (-1, -1), 0),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-            ('TOPPADDING', (0, 0), (0, -1), 0),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-            ('ALIGN', (1, 0), (1, -1), 'LEFT'),
-        ]))
-        content.append(header_table)
-        content.append(Spacer(1, 2))
-    
-    # Título
-    content.append(Spacer(1, 8))
-    content.append(Paragraph(f"RECIBO DE GARANTÍA #{garantia.id}", title_style))
-    content.append(Spacer(1, 3))
-    
-    # Información básica en tabla
-    data = []
-    
-    # Agregar filas de datos
-    data.append(["Fecha y Hora:", garantia.fecha_registro.strftime('%d/%m/%Y %H:%M:%S')])
-    if garantia.fecha_compra:
-        data.append(["Fecha Compra:", garantia.fecha_compra])
-    data.append(["Cliente:", garantia.cliente])
-    if garantia.telefono:
-        data.append(["Teléfono:", garantia.telefono])
-    if garantia.email:
-        data.append(["Email:", garantia.email])
-
-    # Combinar producto en una sola línea
-    producto_parts = []
-    if garantia.tipo_producto:
-        producto_parts.append(garantia.tipo_producto)
-    if garantia.marca:
-        producto_parts.append(garantia.marca)
-    if garantia.modelo:
-        producto_parts.append(garantia.modelo)
-    producto_desc = " ".join(producto_parts)
-    if producto_desc:
-        data.append(["Producto:", producto_desc])
-    
-    if garantia.serial:
-        data.append(["Serial:", garantia.serial])
-    if garantia.factura:
-        data.append(["Factura:", garantia.factura])
-    data.append(["Usuario:", usuario_registro])
-    if garantia.descripcion_falla:
-        data.append(["Fallo:", garantia.descripcion_falla])
-    data.append(["Estado:", garantia.estado])
-    
-    # Crear tabla
-    table = Table(data, colWidths=[1.5*inch, 3.5*inch])  # Reducido para media carta
-    
-    # Construir estilos dinámicamente basado en el número real de filas
-    table_styles = [
-        ('BACKGROUND', (0, 0), (-1, -1), colors.white),
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ('LEFTPADDING', (0, 0), (-1, -1), 3),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
-    ]
-    
-    # Agregar fondos alternos solo para filas que existen
-    num_rows = len(data)
-    for i in range(1, num_rows, 2):  # Filas impares con fondo gris
-        table_styles.append(('BACKGROUND', (0, i), (-1, i), colors.whitesmoke))
-    
-    table.setStyle(TableStyle(table_styles))
-    
-    content.append(table)
-    content.append(Spacer(1, 6))
-    
-    # Política de garantía (texto justificado, letra muy pequeña)
-    politica_texto = (
-        "EL PRESENTE DOCUMENTO NO SIGNIFICA QUE ACEPTAMOS LA GARANTÍA; SIGNIFICA QUE ESTAMOS RECIBIENDO EL EQUIPO "
-        "PARA REVISARLO Y CONFIRMAR SI APLICA O NO DICHA GARANTÍA. Después de 30 días a partir de la fecha, se cobrará "
-        "bodegaje a razón de quinientos pesos ($500) por día. Transcurridos 90 días, se considera que el dispositivo ha "
-        "sido abandonado. En caso de pérdida o daño por fuerza mayor no se responderá por el mismo."
-    )
-    content.append(Paragraph(politica_texto, policy_style))
-    content.append(Spacer(1, 4))
-    
-    # Firma
-    content.append(Paragraph("______________________________", ParagraphStyle('Firma', parent=normal_style, alignment=1)))
-    content.append(Paragraph("Firma del cliente", ParagraphStyle('FirmaLabel', parent=normal_style, alignment=1, spaceAfter=10)))
-    
-    # Generar PDF
-    doc.build(content)
-    buffer.seek(0)
-    
-    # Guardar en archivo temporal
-    import tempfile
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-        tmp_file.write(buffer.getvalue())
-        tmp_path = tmp_file.name
-    
-    return FileResponse(
-        tmp_path, 
-        media_type='application/pdf',
-        filename=f'recibo_garantia_{garantia.id}.pdf'
+    # Devolver HTML directamente
+    return Response(
+        content=html_procesado,
+        media_type='text/html'
     )
