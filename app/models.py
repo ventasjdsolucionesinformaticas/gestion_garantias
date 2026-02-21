@@ -1,7 +1,14 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from database import Base
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+# Zona horaria de Colombia (UTC-5)
+COLOMBIA_TZ = timezone(timedelta(hours=-5))
+
+def now_colombia():
+    """Retorna la hora actual en zona horaria de Colombia (UTC-5)"""
+    return datetime.now(COLOMBIA_TZ).replace(tzinfo=None)
 
 class Garantia(Base):
     __tablename__ = "garantias"
@@ -20,7 +27,7 @@ class Garantia(Base):
     imagen_path = Column(String, nullable=True)
     estado = Column(String, default="Recibido")
     usuario_asignado = Column(String, nullable=True, index=True)
-    fecha_registro = Column(DateTime, default=datetime.utcnow)
+    fecha_registro = Column(DateTime, default=now_colombia)
     comentarios = relationship("Comentario", back_populates="garantia", cascade="all, delete-orphan")
 
 class Comentario(Base):
@@ -30,7 +37,7 @@ class Comentario(Base):
     usuario = Column(String, nullable=False)
     texto = Column(Text, nullable=False)
     attachment_path = Column(String, nullable=True)
-    fecha = Column(DateTime, default=datetime.utcnow)
+    fecha = Column(DateTime, default=now_colombia)
     garantia = relationship("Garantia", back_populates="comentarios")
 
 class Usuario(Base):
@@ -39,7 +46,7 @@ class Usuario(Base):
     username = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
     rol = Column(String, nullable=False, default="consulta")
-    fecha_creacion = Column(DateTime, default=datetime.utcnow)
+    fecha_creacion = Column(DateTime, default=now_colombia)
 
 class ConfiguracionEmpresa(Base):
     __tablename__ = "configuracion_empresa"
@@ -51,4 +58,4 @@ class ConfiguracionEmpresa(Base):
     ciudad = Column(String, nullable=True)
     nit = Column(String, nullable=True)
     logo_path = Column(String, nullable=True)
-    fecha_actualizacion = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    fecha_actualizacion = Column(DateTime, default=now_colombia, onupdate=now_colombia)

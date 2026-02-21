@@ -19,6 +19,7 @@ Quitar serial como obligatorio:OK
 Tipo producto obligatorio, OK
 cuando se seleccione el producto otros agregar una celda vacia para agregar un producto que no es en el listado OK
 asignar garantia a un usuario. OK
+Definir roles
 
 Limpiar BD
 docker exec -it garantias_app_v3_4 rm /app/data/garantias.db
@@ -45,3 +46,28 @@ git push origin main --force
 docker-compose down
 docker-compose build --no-cache
 docker-compose up -d
+
+-despliegue
+# Todo en uno (copia y pega)
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y ca-certificates curl gnupg lsb-release
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker $usuario
+newgrp docker
+
+compartir el directorio c/gestion_garantia-main del windows en la maquina virtual
+sudo mkdir -p /media/gestion
+sudo mount -t vboxsf gestion_garantia-main /media/gestion
+
+
+# Verificar
+docker --version
+docker compose version
+docker run hello-world

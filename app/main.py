@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine, Base
-from models import Garantia, Comentario, Usuario, ConfiguracionEmpresa
+from models import Garantia, Comentario, Usuario, ConfiguracionEmpresa, now_colombia
 from pydantic import BaseModel
 from typing import Optional
 from security import create_token, verify_token
@@ -344,7 +344,11 @@ async def crear_garantia_api(
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(imagen.file, buffer)
         imagen_path = f"/uploads/{filename}"
-    nueva = Garantia(cliente=cliente, cedula=cedula, telefono=telefono, email=email, tipo_producto=tipo_producto, marca=marca, modelo=modelo, serial=serial, factura=factura, fecha_compra=fecha_compra, descripcion_falla=descripcion_falla, imagen_path=imagen_path, usuario_asignado=usuario_asignado, estado="Recibido")
+    
+    # Si no se especifica usuario_asignado, asignar al usuario que crea la garantía
+    asignado_a = usuario_asignado if usuario_asignado else username
+    
+    nueva = Garantia(cliente=cliente, cedula=cedula, telefono=telefono, email=email, tipo_producto=tipo_producto, marca=marca, modelo=modelo, serial=serial, factura=factura, fecha_compra=fecha_compra, descripcion_falla=descripcion_falla, imagen_path=imagen_path, usuario_asignado=asignado_a, estado="Recibido")
     db.add(nueva)
     db.commit()
     db.refresh(nueva)
@@ -362,8 +366,9 @@ def obtener_garantia_api(gid: int, db: Session = Depends(get_db), token: str = H
 def listar_garantias_api(db: Session = Depends(get_db), token: str = Header(None)):
     username = verify_token(token)
     
-    # Todos los usuarios (incuyendo admin) ven solo las asignadas a ellos
-    items = db.query(Garantia).filter(Garantia.usuario_asignado == username).order_by(Garantia.id.desc()).all()
+    # Todos los usuarios pueden ver todas las garantías
+    # Las restricciones de modificación se aplican en otros endpoints
+    items = db.query(Garantia).order_by(Garantia.id.desc()).all()
     
     out = []
     for g in items:
@@ -403,11 +408,19 @@ def cambiar_estado(gid: int, estado: str = Form(...), token: str = Header(None),
     u = db.query(Usuario).filter(Usuario.username == user).first()
     if not u:
         raise HTTPException(status_code=401, detail="Usuario inválido")
+    
+    # Solo admin y técnico pueden cambiar estado
     if u.rol not in ["admin", "tecnico"]:
         raise HTTPException(status_code=403, detail="No tiene permiso para cambiar estado")
+    
     garantia = db.query(Garantia).filter(Garantia.id == gid).first()
     if not garantia:
         raise HTTPException(status_code=404, detail="Garantía no encontrada")
+    
+    # Si es técnico, solo puede cambiar sus propias garantías
+    if u.rol == "tecnico" and garantia.usuario_asignado != user:
+        raise HTTPException(status_code=403, detail="Solo puede cambiar estado de sus propias garantías")
+    
     garantia.estado = estado
     db.commit()
     return {"mensaje": "Estado actualizado", "estado": garantia.estado}
@@ -425,7 +438,7 @@ def export_garantias(token: str = Header(None), db: Session = Depends(get_db)):
     for g in items:
         rows.append({"id": g.id, "cliente": g.cliente, "cedula": g.cedula, "telefono": g.telefono, "email": g.email, "tipo_producto": g.tipo_producto, "marca": g.marca, "modelo": g.modelo, "serial": g.serial, "factura": g.factura, "fecha_compra": g.fecha_compra, "descripcion_falla": g.descripcion_falla, "estado": g.estado, "fecha_registro": g.fecha_registro.isoformat()})
     df = pd.DataFrame(rows)
-    out_path = os.path.join("data", f"garantias_export_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.xlsx")
+    out_path = os.path.join("data", f"garantias_export_{now_colombia().strftime('%Y%m%d%H%M%S')}.xlsx")
     df.to_excel(out_path, index=False)
     return FileResponse(out_path, filename=os.path.basename(out_path), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
@@ -433,7 +446,11 @@ def export_garantias(token: str = Header(None), db: Session = Depends(get_db)):
 # REASIGNAR USUARIO
 @app.put("/api/garantias/{gid}/asignar")
 def reasignar_usuario(gid: int, usuario_asignado: str = Form(...), token: str = Header(None), db: Session = Depends(get_db)):
-    verify_token(token)
+    username = verify_token(token)
+    dbuser = db.query(Usuario).filter(Usuario.username == username).first()
+    if not dbuser:
+        raise HTTPException(status_code=401, detail="Usuario inválido")
+
     garantia = db.query(Garantia).filter(Garantia.id == gid).first()
     if not garantia:
         raise HTTPException(status_code=404, detail="Garantía no encontrada")
@@ -443,6 +460,12 @@ def reasignar_usuario(gid: int, usuario_asignado: str = Form(...), token: str = 
     if not usuario:
         raise HTTPException(status_code=400, detail="Usuario no existe")
     
+    # Permisos: admin puede reasignar cualquier garantía; técnico solo puede reasignar si la garantía está asignada a él
+    if dbuser.rol not in ["admin", "tecnico"]:
+        raise HTTPException(status_code=403, detail="No tiene permiso para reasignar garantías")
+    if dbuser.rol == "tecnico" and garantia.usuario_asignado != username:
+        raise HTTPException(status_code=403, detail="Solo puede reasignar garantías que estén asignadas a usted")
+
     garantia.usuario_asignado = usuario_asignado
     db.commit()
     return {"mensaje": "Usuario asignado exitosamente", "usuario_asignado": usuario_asignado}
@@ -600,7 +623,9 @@ def generar_recibo(gid: int, token: str = Header(None), db: Session = Depends(ge
     data = []
     
     # Agregar filas de datos
-    data.append(["Fecha:", datetime.utcnow().strftime('%d/%m/%Y')])
+    data.append(["Fecha y Hora:", garantia.fecha_registro.strftime('%d/%m/%Y %H:%M:%S')])
+    if garantia.fecha_compra:
+        data.append(["Fecha Compra:", garantia.fecha_compra])
     data.append(["Cliente:", garantia.cliente])
     if garantia.telefono:
         data.append(["Teléfono:", garantia.telefono])
