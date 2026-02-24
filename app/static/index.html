@@ -76,9 +76,14 @@
       }
       
       /* Badges de estado */
-      .badge-pendiente { background:#f0ad4e; color:#000; }
-      .badge-resuelta { background:#5cb85c; color:#fff; }
-      .badge-rechazada { background:#d9534f; color:#fff; }
+      .badge-recibido        { background:#3b82f6; color:#fff; }   /* Azul       - Recibido */
+      .badge-en-revision     { background:#f97316; color:#fff; }   /* Naranja    - En Revisión */
+      .badge-enviado         { background:#8b5cf6; color:#fff; }   /* Morado     - Enviado */
+      .badge-esperando       { background:#eab308; color:#000; }   /* Amarillo   - Esperando Respuesta */
+      .badge-resuelta        { background:#22c55e; color:#fff; }   /* Verde      - Resuelta */
+      .badge-rechazada       { background:#ef4444; color:#fff; }   /* Rojo       - Rechazada */
+      /* fallback */
+      .badge-pendiente       { background:#f0ad4e; color:#000; }
       
       /* Espacios reducidos en formularios */
       .mb-2 {
@@ -125,12 +130,33 @@
           <div class="card mb-3">
             <div class="card-body">
               <h5 class="card-title">Registrar nueva garantía</h5>
-              <form id="formGarantia">
-                <div class="mb-2"><label>Cliente</label><input id="cliente" class="form-control" required></div>
-                <div class="mb-2"><label>Cédula</label><input id="cedula" class="form-control" required></div>
-                <div class="mb-2"><label>Teléfono</label><input id="telefono" class="form-control" required></div>
-                <div class="mb-2"><label>Correo electrónico</label><input id="email" type="email" class="form-control" placeholder="ejemplo@correo.com"></div>
-                <div class="mb-2"><label>Tipo de producto</label>
+              <form id="formGarantia" novalidate>
+                <!-- Nombre con autocompletado -->
+                <div class="mb-2 position-relative">
+                  <label>Nombre <span class="text-danger">*</span></label>
+                  <input id="cliente" class="form-control" required minlength="3" autocomplete="off" placeholder="Nombre completo del cliente">
+                  <div id="clienteAutocomplete" class="list-group position-absolute w-100 shadow-sm" style="z-index:1000;display:none;max-height:200px;overflow-y:auto;top:100%"></div>
+                  <div class="invalid-feedback">Ingrese el nombre completo (mínimo 3 caracteres).</div>
+                </div>
+                <!-- Cédula -->
+                <div class="mb-2">
+                  <label>Cédula <span class="text-danger">*</span></label>
+                  <input id="cedula" class="form-control" required pattern="[0-9]{5,12}" inputmode="numeric" placeholder="Solo números, 5-12 dígitos">
+                  <div class="invalid-feedback">Ingrese una cédula válida (solo números, 5-12 dígitos).</div>
+                </div>
+                <!-- Teléfono -->
+                <div class="mb-2">
+                  <label>Teléfono <span class="text-danger">*</span></label>
+                  <input id="telefono" class="form-control" required pattern="[0-9]{7,10}" inputmode="numeric" placeholder="Solo números, 7-10 dígitos">
+                  <div class="invalid-feedback">Ingrese un teléfono válido (solo números, 7-10 dígitos).</div>
+                </div>
+                <!-- Correo -->
+                <div class="mb-2">
+                  <label>Correo electrónico</label>
+                  <input id="email" type="email" class="form-control" placeholder="ejemplo@correo.com">
+                  <div class="invalid-feedback">Ingrese un correo electrónico válido.</div>
+                </div>
+                <div class="mb-2"><label>Tipo de producto <span class="text-danger">*</span></label>
                   <select id="tipo_producto" class="form-control" required>
                     <option value="" disabled selected>Seleccionar...</option>
                     <option value="Portatil">Portátil</option>
@@ -146,7 +172,7 @@
                 <div class="mb-2"><label>Serial</label><input id="serial" class="form-control"></div>
                 <div class="mb-2"><label>Factura</label><input id="factura" class="form-control"></div>
                 <div class="mb-2"><label>Fecha compra</label><input id="fecha_compra" type="date" class="form-control"></div>
-                <div class="mb-2"><label>Fallo</label><textarea id="descripcion_falla" class="form-control" required></textarea></div>
+                <div class="mb-2"><label>Fallo <span class="text-danger">*</span></label><textarea id="descripcion_falla" class="form-control" required placeholder="Describa el problema o falla del equipo..."></textarea></div>
                 <div class="mb-2"><label>Imagen (opcional)</label><input id="imagen" type="file" class="form-control"></div>
                 <div class="mb-2"><label>Asignar a usuario</label>
                   <select id="usuario_asignado" class="form-control">
@@ -168,7 +194,7 @@
                   <select id="filtroEstado" class="form-select form-select-sm">
                     <option value="">Todos</option>
                     <option value="Recibido">Recibido</option>
-                    <option value="En Validacion">En Validación</option>
+                    <option value="En Revision">En Revisión</option>
                     <option value="Enviado">Enviado</option>
                     <option value="Esperando Respuesta">Esperando Respuesta</option>
                     <option value="Resuelta">Resuelta</option>
@@ -178,7 +204,7 @@
               </div>
               <div class="table-responsive" style="max-height:60vh; overflow:auto">
                 <table class="table table-striped" id="tablaGarantias">
-                  <thead><tr><th>ID</th><th>Cliente</th><th>Cédula</th><th>Teléfono</th><th>Email</th><th>Producto</th><th>Usuario</th><th>Falla</th><th>Estado</th><th>Acciones</th></tr></thead>
+                  <thead><tr><th>ID</th><th>Cliente</th><th>Cédula</th><th>Teléfono</th><th>Email</th><th>Producto</th><th>Usuario</th><th>Falla</th><th>Estado</th><th>Fecha</th><th>Valor ($)</th><th>Acciones</th></tr></thead>
                   <tbody></tbody>
                 </table>
               </div>
@@ -283,18 +309,56 @@
     <div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
-          <div class="modal-header"><h5 class="modal-title">Detalle</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-header">
+            <h5 class="modal-title">📋 Detalle de Orden</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
           <div class="modal-body">
             <div id="detailBody"></div>
-            <hr>
-            <h6>Comentarios</h6>
-            <ul id="comentariosList" class="list-group mb-2"></ul>
-            <form id="formComentario" class="mb-2">
-              <div class="mb-2"><textarea id="comentario_text" class="form-control" rows="3" placeholder="Agregar comentario..."></textarea></div>
-              <div class="mb-2"><input id="comentario_file" type="file" class="form-control"></div>
-              <div class="d-flex justify-content-between">
-                <select id="cambiar_estado" class="form-select" style="width:200px"><option value="Recibido">Recibido</option><option value="En Validacion">En Validación</option><option value="Enviado">Enviado</option><option value="Esperando Respuesta">Esperando Respuesta</option><option value="Resuelta">Resuelta</option><option value="Rechazada">Rechazada</option></select>
-                <div><button type="button" id="btnPrintRecibo" class="btn btn-info me-2">🖨️ Imprimir Recibo</button><button type="button" id="btnAddComment" class="btn btn-primary me-2">Agregar comentario</button> <button type="button" id="btnChangeState" class="btn btn-secondary me-2">Cambiar estado</button><button type="button" id="btnAsignarUsuario" class="btn btn-warning">Asignar a Usuario</button></div>
+
+            <hr class="my-3">
+
+            <!-- Sección comentarios -->
+            <h6 class="fw-bold mb-2">💬 Comentarios</h6>
+            <ul id="comentariosList" class="list-group mb-3"></ul>
+
+            <form id="formComentario">
+              <!-- Textarea comentario -->
+              <div class="mb-2">
+                <textarea id="comentario_text" class="form-control" rows="3" placeholder="Agregar comentario..."></textarea>
+              </div>
+              <div class="mb-3">
+                <input id="comentario_file" type="file" class="form-control form-control-sm">
+              </div>
+
+              <hr class="my-2">
+
+              <!-- Fila: Valor cobrado (solo admin/técnico) -->
+              <div class="d-flex align-items-center gap-2 mb-3" id="seccionValorCobrado">
+                <span class="fw-semibold text-success" style="white-space:nowrap">💰 Valor cobrado ($):</span>
+                <input type="number" id="inputValorCobrado" class="form-control form-control-sm" style="width:130px" min="0" step="0.01" placeholder="0.00">
+                <button type="button" id="btnGuardarValor" class="btn btn-sm btn-success px-3">💾 Guardar</button>
+              </div>
+
+              <!-- Fila: Cambiar estado -->
+              <div class="d-flex align-items-center gap-2 mb-3">
+                <label class="fw-semibold mb-0" style="white-space:nowrap">🔄 Estado:</label>
+                <select id="cambiar_estado" class="form-select form-select-sm" style="width:200px">
+                  <option value="Recibido">Recibido</option>
+                  <option value="En Revision">En Revisión</option>
+                  <option value="Enviado">Enviado</option>
+                  <option value="Esperando Respuesta">Esperando Respuesta</option>
+                  <option value="Resuelta">Resuelta</option>
+                  <option value="Rechazada">Rechazada</option>
+                </select>
+                <button type="button" id="btnChangeState" class="btn btn-sm btn-secondary px-3">✅ Cambiar estado</button>
+              </div>
+
+              <!-- Fila: Acciones -->
+              <div class="d-flex flex-wrap gap-2">
+                <button type="button" id="btnAddComment" class="btn btn-primary btn-sm">💬 Agregar comentario</button>
+                <button type="button" id="btnAsignarUsuario" class="btn btn-warning btn-sm">👤 Asignar usuario</button>
+                <button type="button" id="btnPrintRecibo" class="btn btn-info btn-sm">🖨️ Imprimir Recibo</button>
               </div>
             </form>
           </div>
@@ -490,17 +554,33 @@
       // create garantia
       document.getElementById('formGarantia').addEventListener('submit', async (e)=>{
         e.preventDefault();
-        // Validar campos requeridos
-        const cliente = document.getElementById('cliente').value.trim();
-        const cedula = document.getElementById('cedula').value.trim();
-        const telefono = document.getElementById('telefono').value.trim();
+        // Cerrar autocomplete
+        document.getElementById('clienteAutocomplete').style.display = 'none';
+
+        // Validar campos requeridos con feedback visual
+        const elCliente  = document.getElementById('cliente');
+        const elCedula   = document.getElementById('cedula');
+        const elTelefono = document.getElementById('telefono');
+        const elEmail    = document.getElementById('email');
+
+        const cliente = elCliente.value.trim();
+        const cedula  = elCedula.value.trim();
+        const telefono = elTelefono.value.trim();
         const tipoProductoSel = document.getElementById('tipo_producto').value;
         const tipoProductoOtros = document.getElementById('tipo_producto_otros').value.trim();
         const tipoProducto = (tipoProductoSel === 'otros' && tipoProductoOtros) ? tipoProductoOtros : tipoProductoSel;
         const descripcionFalla = document.getElementById('descripcion_falla').value.trim();
-        
-        if (!cliente || !cedula || !telefono || !tipoProducto || !descripcionFalla) {
-          alert('Por favor, complete todos los campos obligatorios: Cliente, Cédula, Teléfono, Tipo de producto y Fallo.');
+
+        // Disparar validaciones visuales
+        validarCampo(elCliente,  cliente.length >= 3);
+        validarCampo(elCedula,   /^[0-9]{5,12}$/.test(cedula));
+        validarCampo(elTelefono, /^[0-9]{7,10}$/.test(telefono));
+        const emailVal = elEmail.value.trim();
+        if(emailVal) validarCampo(elEmail, /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal));
+
+        if (!cliente || !cedula || !telefono || !tipoProducto || !descripcionFalla ||
+            cliente.length < 3 || !/^[0-9]{5,12}$/.test(cedula) || !/^[0-9]{7,10}$/.test(telefono)) {
+          elCliente.scrollIntoView({behavior:'smooth', block:'center'});
           return;
         }
         
@@ -535,7 +615,7 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `recibo_garantia_${garantiaData.id}.pdf`;
+                a.download = `recibo_garantia_${garantiaData.id}.html`;
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
@@ -555,6 +635,95 @@
         else alert('Error');
       });
 
+      // =============================================
+      // VALIDACIÓN EN TIEMPO REAL + AUTOCOMPLETADO
+      // =============================================
+
+      // Helper: marcar campo como válido/inválido
+      function validarCampo(el, esValido) {
+        el.classList.toggle('is-valid', esValido);
+        el.classList.toggle('is-invalid', !esValido);
+      }
+
+      // Validación en tiempo real: Nombre (mínimo 3 chars)
+      document.getElementById('cliente').addEventListener('input', function(){
+        validarCampo(this, this.value.trim().length >= 3);
+      });
+
+      // Validación en tiempo real: Cédula (solo números, 5-12 dígitos)
+      document.getElementById('cedula').addEventListener('input', function(){
+        this.value = this.value.replace(/\D/g, ''); // solo números
+        validarCampo(this, /^[0-9]{5,12}$/.test(this.value.trim()));
+      });
+
+      // Validación en tiempo real: Teléfono (solo números, 7-10 dígitos)
+      document.getElementById('telefono').addEventListener('input', function(){
+        this.value = this.value.replace(/\D/g, ''); // solo números
+        validarCampo(this, /^[0-9]{7,10}$/.test(this.value.trim()));
+      });
+
+      // Validación en tiempo real: Email (opcional, pero si tiene valor debe ser válido)
+      document.getElementById('email').addEventListener('input', function(){
+        const v = this.value.trim();
+        if(!v){ this.classList.remove('is-valid','is-invalid'); return; }
+        validarCampo(this, /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v));
+      });
+
+      // Limpiar validaciones al resetear el formulario
+      document.getElementById('formGarantia').addEventListener('reset', function(){
+        this.querySelectorAll('.is-valid,.is-invalid').forEach(el => el.classList.remove('is-valid','is-invalid'));
+        document.getElementById('clienteAutocomplete').style.display = 'none';
+      });
+
+      // =============================================
+      // AUTOCOMPLETADO DE CLIENTE
+      // =============================================
+      let autocompleteTimer = null;
+      const inputCliente = document.getElementById('cliente');
+      const dropdownAC = document.getElementById('clienteAutocomplete');
+
+      inputCliente.addEventListener('input', function(){
+        clearTimeout(autocompleteTimer);
+        const q = this.value.trim();
+        if(q.length < 2){ dropdownAC.style.display='none'; dropdownAC.innerHTML=''; return; }
+        autocompleteTimer = setTimeout(async ()=>{
+          try {
+            const res = await api(`/clientes/buscar?q=${encodeURIComponent(q)}`);
+            if(!res.ok){ dropdownAC.style.display='none'; return; }
+            const lista = await res.json();
+            if(!lista.length){ dropdownAC.style.display='none'; dropdownAC.innerHTML=''; return; }
+            dropdownAC.innerHTML = lista.map(c =>
+              `<button type="button" class="list-group-item list-group-item-action py-1 px-2"
+                data-cliente="${c.cliente}" data-cedula="${c.cedula}" data-telefono="${c.telefono}" data-email="${c.email}">
+                <strong>${c.cliente}</strong> <small class="text-muted">— CC: ${c.cedula||'—'} | Tel: ${c.telefono||'—'}</small>
+              </button>`
+            ).join('');
+            dropdownAC.style.display = 'block';
+            // Click en sugerencia: autocompletar campos
+            dropdownAC.querySelectorAll('button').forEach(btn => {
+              btn.addEventListener('click', ()=>{
+                document.getElementById('cliente').value   = btn.dataset.cliente;
+                document.getElementById('cedula').value    = btn.dataset.cedula;
+                document.getElementById('telefono').value  = btn.dataset.telefono;
+                document.getElementById('email').value     = btn.dataset.email;
+                dropdownAC.style.display = 'none';
+                // Disparar validaciones
+                ['cliente','cedula','telefono','email'].forEach(id => {
+                  document.getElementById(id).dispatchEvent(new Event('input'));
+                });
+              });
+            });
+          } catch(e){ dropdownAC.style.display='none'; }
+        }, 300);
+      });
+
+      // Cerrar dropdown al hacer click fuera
+      document.addEventListener('click', function(e){
+        if(!inputCliente.contains(e.target) && !dropdownAC.contains(e.target)){
+          dropdownAC.style.display = 'none';
+        }
+      });
+
       async function cargarGarantias(){
         const res = await api('/garantias'); const data = await res.json();
         const filtro = document.getElementById('filtroEstado').value;
@@ -569,10 +738,20 @@
           return true;
         }).forEach(g=>{
           const tr = document.createElement('tr');
-          let badge = '<span class="badge badge-pendiente">' + (g.estado || 'Recibido') + '</span>';
-          if(g.estado==='Resuelta') badge = '<span class="badge badge-resuelta">Resuelta</span>';
-          if(g.estado==='Rechazada') badge = '<span class="badge badge-rechazada">Rechazada</span>';
-          tr.innerHTML = `<td>${g.id}</td><td>${g.cliente}</td><td>${g.cedula||''}</td><td>${g.telefono||''}</td><td>${g.email||''}</td><td>${g.tipo_producto||''} ${g.marca?' - '+g.marca:''} ${g.modelo?' - '+g.modelo:''} ${g.serial?' - '+g.serial:''}</td><td>${g.usuario_asignado||'-'}</td><td>${g.descripcion_falla||''}</td><td>${badge}</td><td><button class="btn btn-sm btn-outline-primary" onclick="verDetalle(${g.id})">Ver</button> <button class="btn btn-sm btn-outline-success" onclick="abrirComentario(${g.id})">Comentar</button> <button class="btn btn-sm btn-outline-info" onclick="imprimirRecibo(${g.id})">🖨️</button></td>`;
+          const estadoBadgeClass = {
+            'Recibido':            'badge-recibido',
+            'En Revision':         'badge-en-revision',
+            'Enviado':             'badge-enviado',
+            'Esperando Respuesta': 'badge-esperando',
+            'Resuelta':            'badge-resuelta',
+            'Rechazada':           'badge-rechazada'
+          };
+          const estadoLabel = g.estado || 'Recibido';
+          const badgeClass = estadoBadgeClass[estadoLabel] || 'badge-pendiente';
+          let badge = `<span class="badge ${badgeClass}">${estadoLabel}</span>`;
+          const fechaReg = g.fecha_registro ? new Date(g.fecha_registro).toLocaleDateString('es-CO', {day:'2-digit', month:'2-digit', year:'numeric'}) : '-';
+          const valorCob = (g.valor_cobrado !== null && g.valor_cobrado !== undefined) ? `$${parseFloat(g.valor_cobrado).toLocaleString('es-CO', {minimumFractionDigits:0, maximumFractionDigits:2})}` : '-';
+          tr.innerHTML = `<td>${g.id}</td><td>${g.cliente}</td><td>${g.cedula||''}</td><td>${g.telefono||''}</td><td>${g.email||''}</td><td>${g.tipo_producto||''} ${g.marca?' - '+g.marca:''} ${g.modelo?' - '+g.modelo:''} ${g.serial?' - '+g.serial:''}</td><td>${g.usuario_asignado||'-'}</td><td>${g.descripcion_falla||''}</td><td>${badge}</td><td>${fechaReg}</td><td>${valorCob}</td><td><button class="btn btn-sm btn-outline-primary" onclick="verDetalle(${g.id})">Ver</button> <button class="btn btn-sm btn-outline-success" onclick="abrirComentario(${g.id})">Comentar</button> <button class="btn btn-sm btn-outline-info" onclick="imprimirRecibo(${g.id})">🖨️</button></td>`;
           tbody.appendChild(tr);
         });
       }
@@ -657,17 +836,52 @@
         if(!res.ok) return alert('No encontrado');
         const g = await res.json();
         const fechaRegistro = g.fecha_registro ? new Date(g.fecha_registro).toLocaleString('es-CO') : '';
-        document.getElementById('detailBody').innerHTML = `<p><strong>ID:</strong> ${g.id}</p><p><strong>Fecha y Hora Registro:</strong> ${fechaRegistro}</p><p><strong>Cliente:</strong> ${g.cliente}</p><p><strong>Cédula:</strong> ${g.cedula||''}</p><p><strong>Teléfono:</strong> ${g.telefono||''}</p><p><strong>Correo:</strong> ${g.email||'—'}</p><p><strong>Tipo de producto:</strong> ${g.tipo_producto||''}</p><p><strong>Marca:</strong> ${g.marca||''}</p><p><strong>Modelo:</strong> ${g.modelo||''}</p><p><strong>Serial:</strong> ${g.serial||''}</p><p><strong>Factura:</strong> ${g.factura||''}</p><p><strong>Fecha Compra:</strong> ${g.fecha_compra||'—'}</p><p><strong>Falla:</strong> ${g.descripcion_falla||''}</p><p><strong>Estado:</strong> <span id="estadoDetalle">${g.estado}</span></p>${g.imagen_path?`<p><a href='${g.imagen_path}' target='_blank'>Ver imagen</a></p>`:''}`;
+        const estadoBadgeClassDet = {'Recibido':'badge-recibido','En Revision':'badge-en-revision','Enviado':'badge-enviado','Esperando Respuesta':'badge-esperando','Resuelta':'badge-resuelta','Rechazada':'badge-rechazada'};
+        const badgeClsDet = estadoBadgeClassDet[g.estado] || 'badge-pendiente';
+        document.getElementById('detailBody').innerHTML = `
+          <div class="row g-2 mb-1">
+            <div class="col-6 col-md-3"><small class="text-muted d-block">🔢 Orden #</small><strong>${g.id}</strong></div>
+            <div class="col-6 col-md-3"><small class="text-muted d-block">📅 Fecha registro</small><strong>${fechaRegistro}</strong></div>
+            <div class="col-6 col-md-3"><small class="text-muted d-block">🔖 Estado</small><span id="estadoDetalle" class="badge ${badgeClsDet}">${g.estado}</span></div>
+            <div class="col-6 col-md-3"><small class="text-muted d-block">👤 Técnico</small><strong>${g.usuario_asignado||'—'}</strong></div>
+          </div>
+          <hr class="my-2">
+          <div class="row g-2 mb-1">
+            <div class="col-6 col-md-4"><small class="text-muted d-block">🧑 Cliente</small><strong>${g.cliente}</strong></div>
+            <div class="col-6 col-md-4"><small class="text-muted d-block">🪪 Cédula</small>${g.cedula||'—'}</div>
+            <div class="col-6 col-md-4"><small class="text-muted d-block">📞 Teléfono</small>${g.telefono||'—'}</div>
+            <div class="col-12 col-md-4"><small class="text-muted d-block">✉️ Correo</small>${g.email||'—'}</div>
+          </div>
+          <hr class="my-2">
+          <div class="row g-2 mb-1">
+            <div class="col-6 col-md-3"><small class="text-muted d-block">📦 Tipo</small>${g.tipo_producto||'—'}</div>
+            <div class="col-6 col-md-3"><small class="text-muted d-block">🏷️ Marca</small>${g.marca||'—'}</div>
+            <div class="col-6 col-md-3"><small class="text-muted d-block">📱 Modelo</small>${g.modelo||'—'}</div>
+            <div class="col-6 col-md-3"><small class="text-muted d-block">🔑 Serial</small>${g.serial||'—'}</div>
+            <div class="col-6 col-md-3"><small class="text-muted d-block">🧾 Factura</small>${g.factura||'—'}</div>
+            <div class="col-6 col-md-3"><small class="text-muted d-block">📆 Fecha compra</small>${g.fecha_compra||'—'}</div>
+          </div>
+          <hr class="my-2">
+          <div class="mb-1"><small class="text-muted d-block">🔧 Descripción de la falla</small><div class="p-2 bg-light rounded">${g.descripcion_falla||'—'}</div></div>
+          ${g.imagen_path?`<div class="mt-2"><a href='${g.imagen_path}' target='_blank' class="btn btn-sm btn-outline-secondary">🖼️ Ver imagen adjunta</a></div>`:''}
+        `;
         // establecer valor del select
         const selEstado = document.getElementById('cambiar_estado');
         if(selEstado) selEstado.value = (g.estado && selEstado.querySelector('option[value="'+g.estado+'"]')) ? g.estado : 'Recibido';
 
+        // cargar valor cobrado en el input
+        const inputValor = document.getElementById('inputValorCobrado');
+        if(inputValor) inputValor.value = (g.valor_cobrado !== null && g.valor_cobrado !== undefined) ? g.valor_cobrado : '';
+
         // lógica de visibilidad según rol y asignación
         const btnChange = document.getElementById('btnChangeState');
         const btnAsignar = document.getElementById('btnAsignarUsuario');
+        const seccionValor = document.getElementById('seccionValorCobrado');
         const canChange = (rol === 'admin') || (rol === 'tecnico' && g.usuario_asignado === usuario);
         if(selEstado) selEstado.style.display = canChange ? '' : 'none';
         if(btnChange) btnChange.style.display = canChange ? '' : 'none';
+        // el campo de valor solo lo ven admin y técnico asignado
+        if(seccionValor) seccionValor.style.display = canChange ? '' : 'none';
         // permitir reasignar tanto a admin como a técnicos (cuando la garantía esté asignada al técnico)
         const canAsign = (rol === 'admin') || (rol === 'tecnico' && g.usuario_asignado === usuario);
         if(btnAsignar) btnAsignar.style.display = canAsign ? '' : 'none';
@@ -694,6 +908,16 @@
         const f = document.getElementById('comentario_file').files[0]; if(f) fd.append('archivo', f);
         const res = await api(`/garantias/${gid}/comentarios`, {method:'POST', body: fd});
         if(res.ok){ document.getElementById('comentario_text').value=''; document.getElementById('comentario_file').value=''; await cargarComentarios(gid); cargarGarantias(); } else { const j=await res.json().catch(()=>({detail:'error'})); alert(j.detail||'Error al agregar comentario'); }
+      });
+
+      // handler para guardar valor cobrado
+      document.getElementById('btnGuardarValor').addEventListener('click', async ()=>{
+        const gid = detailModalEl.dataset.gid; if(!gid) return;
+        const valor = document.getElementById('inputValorCobrado').value;
+        if(valor === '' || isNaN(parseFloat(valor))) return alert('Ingrese un valor numérico válido');
+        const fd = new FormData(); fd.append('valor', parseFloat(valor));
+        const res = await api(`/garantias/${gid}/valor`, {method:'PATCH', body: fd});
+        if(res.ok){ cargarGarantias(); alert('✅ Valor guardado correctamente'); } else { const j=await res.json().catch(()=>({detail:'error'})); alert(j.detail||'Error al guardar valor'); }
       });
 
       // handler único para cambiar estado
@@ -737,7 +961,7 @@
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `recibo_garantia_${gid}.pdf`;
+            a.download = `recibo_garantia_${gid}.html`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
@@ -760,7 +984,7 @@
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `recibo_garantia_${gid}.pdf`;
+            a.download = `recibo_garantia_${gid}.html`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);

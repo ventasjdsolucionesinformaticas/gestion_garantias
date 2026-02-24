@@ -1,11 +1,11 @@
 gerencia@pctintas.com
 Martina2026$
 
-Registrar el Valor
+Registrar el Valor 
 envio email con el adjunto
 tomar el valor del cliente si ya existe otra garantia con esa cedula
-cambiar cliente por nombre
-Cambiar estado en validacion por en revision
+cambiar cliente por nombre :OK
+Cambiar estado en validacion por en revision OK
 
 Recepcion
 En validacion (determinar si es garantia o no)
@@ -22,6 +22,11 @@ docker exec -it garantias_app_v3_4 python -c "import sqlite3; c=sqlite3.connect(
 
 git add .
 git commit -m "Funcional bug impresion corregido"
+
+cambiar de rama  
+git checkout -b version_test
+
+git push -u origin version_test
 git push -u origin main
 
 # 1. Ver historial de commits

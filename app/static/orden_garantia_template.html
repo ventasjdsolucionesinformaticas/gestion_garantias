@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orden de Garantía - PC TINTAS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        body {
+            background-color: #f4f7fc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .email-container {
+            max-width: 650px;
+            width: 100%;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e9ecf0;
+        }
+        /* Header con gradiente */
+        .header {
+            background: linear-gradient(135deg, #3a72c7 0%, #1a3f75 100%);
+            color: white;
+            padding: 30px 35px 25px 35px;
+        }
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 5px;
+            letter-spacing: -0.5px;
+        }
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+        .badge-garantia {
+            display: inline-block;
+            background-color: #ffb421;
+            color: #0b2b5c;
+            font-weight: 700;
+            font-size: 14px;
+            padding: 6px 16px;
+            border-radius: 50px;
+            margin-top: 12px;
+            letter-spacing: 0.3px;
+        }
+        /* Contenido principal */
+        .content {
+            padding: 35px;
+        }
+        /* Tarjeta de saludo */
+        .greeting-card {
+            background-color: #f8fafd;
+            border-left: 4px solid #ffb421;
+            padding: 20px 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        .greeting-card h2 {
+            color: #1a2b3e;
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .greeting-card p {
+            color: #5a6874;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        /* Tabla de detalles de la orden */
+        .order-details {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        .order-details-header {
+            background-color: #f1f5f9;
+            padding: 16px 25px;
+            border-bottom: 1px solid #dde3e9;
+        }
+        .order-details-header h3 {
+            color: #0f2b4f;
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .order-details-header h3 span {
+            background-color: #ffb421;
+            color: #0b2b5c;
+            font-size: 14px;
+            padding: 3px 10px;
+            border-radius: 30px;
+            margin-left: 10px;
+        }
+        .order-details-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .order-details-table tr {
+            border-bottom: 1px solid #edf2f7;
+        }
+        .order-details-table tr:last-child {
+            border-bottom: none;
+        }
+        .order-details-table td {
+            padding: 16px 25px;
+            vertical-align: top;
+        }
+        .order-details-table td:first-child {
+            width: 40%;
+            font-weight: 500;
+            color: #536878;
+            background-color: #fafcff;
+        }
+        .order-details-table td:last-child {
+            width: 60%;
+            font-weight: 600;
+            color: #1f2a41;
+            background-color: #ffffff;
+        }
+        /* Sección de equipo */
+        .equipo-section {
+            background-color: #f0f7ff;
+            border-radius: 14px;
+            padding: 20px 25px;
+            margin-bottom: 25px;
+            border: 1px dashed #b8d1f3;
+        }
+        .equipo-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #0b2b5c;
+            font-size: 17px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        .equipo-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .equipo-item {
+            flex: 1 1 200px;
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+            border: 1px solid #d9e6f5;
+        }
+        .equipo-item strong {
+            display: block;
+            color: #1f3a6b;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        .equipo-item span {
+            color: #2d4059;
+            font-size: 15px;
+            font-weight: 500;
+        }
+        /* Instrucciones */
+        .instrucciones {
+            background-color: #fef9e7;
+            border-radius: 12px;
+            padding: 20px 25px;
+            margin: 25px 0;
+            border-left: 4px solid #ffb421;
+        }
+        .instrucciones p {
+            color: #5a4e2b;
+            font-size: 15px;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        .instrucciones ul {
+            padding-left: 20px;
+            color: #5a4e2b;
+        }
+        .instrucciones li {
+            margin-bottom: 6px;
+        }
+        /* Botón */
+        .btn-container {
+            text-align: center;
+            margin: 35px 0 20px;
+        }
+        .btn {
+            background-color: #ffb421;
+            color: #0b2b5c !important;
+            text-decoration: none;
+            padding: 15px 45px;
+            border-radius: 60px;
+            font-weight: 700;
+            font-size: 18px;
+            display: inline-block;
+            box-shadow: 0 5px 15px rgba(255, 180, 33, 0.3);
+            transition: all 0.2s;
+            border: 1px solid #e09d10;
+        }
+        .btn:hover {
+            background-color: #f0a71c;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(255, 180, 33, 0.4);
+        }
+        /* Footer */
+        .footer {
+            background-color: #f8fafc;
+            padding: 25px 35px;
+            border-top: 1px solid #e5e9f0;
+            text-align: center;
+        }
+        .footer-logo {
+            font-size: 22px;
+            font-weight: 700;
+            color: #0b2b5c;
+            margin-bottom: 10px;
+        }
+        .footer-logo span {
+            color: #ffb421;
+        }
+        .footer-text {
+            color: #7b8a9b;
+            font-size: 13px;
+            line-height: 1.7;
+            margin: 5px 0;
+        }
+        .social-icons {
+            margin: 15px 0 10px;
+        }
+        .social-icons img {
+            width: 32px;
+            margin: 0 5px;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        .social-icons img:hover {
+            opacity: 1;
+        }
+        hr {
+            border: none;
+            border-top: 1px solid #dde3e9;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- HEADER CORPORATIVO -->
+        <div class="header">
+            <h1>🔧 PC TINTAS</h1>
+            <p>Seguridad y Tecnologia</p>
+            <div class="badge-garantia">📄 ORDEN DE ENTREGA · SERVICIO</div>
+        </div>
+        
+        <!-- CONTENIDO PRINCIPAL -->
+        <div class="content">
+            <!-- SALUDO PERSONALIZADO -->
+            <div class="greeting-card">
+                <h2>¡Hola, [NOMBRE_CLIENTE]! 👋</h2>
+                <p>Te entregamos esta orden con los detalles de tu servicio. Por favor, revisa que todos los datos sean correctos.</p>
+            </div>
+            
+            <!-- DETALLES DE LA ORDEN DE SERVICIO -->
+            <div class="order-details">
+                <div class="order-details-header">
+                    <h3>📋 DETALLE DE LA ORDEN DE GARANTÍA <span># [NUMERO_ORDEN]</span></h3>
+                </div>
+                <table class="order-details-table">
+                    <tr>
+                        <td>📅 Fecha de emisión</td>
+                        <td><strong>[FECHA_EMISION]</strong></td>
+                    </tr>
+                    <!--<tr>
+                        <td>📆 Fecha de recepción</td>
+                        <td><strong>[FECHA_RECEPCION]</strong></td>
+                    </tr>
+                    <tr>-->
+                        <!--<td>🔧 Tipo de garantía</td>
+                        <td><strong>[TIPO_GARANTIA]</strong> (estándar · extendida)</td>
+                    </tr>-->
+                    <!--tr>
+                        <td>⏳ Vigencia hasta</td>
+                        <td><strong>[VIGENCIA]</strong></td>
+                    </tr>-->
+                    <tr>
+                        <td>👨‍🔧 Técnico asignado</td>
+                        <td><strong>[TECNICO]</strong></td>
+                    </tr>
+                    <!--<tr>
+                        <td>📍 Sucursal de entrega</td>
+                        <td><strong>[SUCURSAL]</strong></td>
+                    </tr>-->
+                </table>
+            </div>
+            
+            <!-- EQUIPO(S) REPARADO(S) -->
+            <div class="equipo-section">
+                <div class="equipo-title">
+                    <span>🖥️ EQUIPO(S) RECBIDOS</span>
+                </div>
+                <div class="equipo-grid">
+                    <!-- Puedes repetir este bloque si hay varios equipos -->
+                    <div class="equipo-item">
+                        <strong>Producto</strong>
+                        <span>[PRODUCTO_1]</span>
+                    </div>
+                    <div class="equipo-item">
+                        <strong>Marca/Modelo</strong>
+                        <span>[MARCA_MODELO_1]</span>
+                    </div>
+                    <div class="equipo-item">
+                        <strong>N° Serie</strong>
+                        <span>[SERIE_1]</span>
+                    </div>
+                    <div class="equipo-item">
+                        <strong>Falla reportada</strong>
+                        <span>[FALLA_1]</span>
+                    </div>
+                    <!-- Si hay segundo equipo, descomentar:
+                    <div class="equipo-item">
+                        <strong>Producto 2</strong>
+                        <span>[PRODUCTO_2]</span>
+                    </div>
+                    ... -->
+                </div>
+            </div>
+            
+            <!-- INSTRUCCIONES Y OBSERVACIONES -->
+            <div class="instrucciones">
+                <p><strong>📌 Notas importantes:</strong></p>
+                <ul>
+                    <li>🔹 Este servicio cubre exclusivamente la reparación y/o garantia gestionada con este equipo.</li>
+                   <!---- <li>🔹 Para hacer válida la garantía, presenta este correo (digital o impreso) junto con tu factura de compra.</li>-->
+                    <li>🔹 La garantía no cubre daños por golpes, humedad o mal uso.</li>
+                    <li>🔹 Si tienes dudas, responde a este correo o llámanos al 3148882658</li>
+                </ul>
+                <!--<p style="margin-top: 12px;"><em>Observaciones: [OBSERVACIONES]</em></p>-->
+            </div>
+            
+            <!-- BOTÓN DE ACCIÓN (opcional) 
+            <div class="btn-container">
+                <a href="[LINK_SEGUIMIENTO]" class="btn">📲 DAR SEGUIMIENTO A MI GARANTÍA</a>
+            </div>
+            <p style="text-align: center; color: #9aa9b7; font-size: 13px; margin-top: -10px;">Haz clic para ver el estado actualizado</p>
+        </div>-->
+        
+        <!-- FOOTER CON DATOS DE CONTACTO Y LEGALES -->
+        <div class="footer">
+            <div class="footer-logo">PC<span>TINTAS</span></div>
+            <div class="footer-text">📍 Crrera 21 No 25-35</div>
+            <div class="footer-text"><a href="https://www.pctintas.com" target="_blank">www.pctintas.com</a></div>
+            <div class="social-icons">
+                <!-- Reemplaza con las URLs de tus redes sociales -->
+                <a href="https://www.facebook.com/share/1EJ6uj93Cc/"><img src="https://cdn-icons-png.flaticon.com/24/733/733547.png" alt="Facebook"></a>
+                <a href="https://www.instagram.com/pctintasmanizales?igsh=Z296anFsZjlvOGU1"><img src="https://cdn-icons-png.flaticon.com/24/2111/2111463.png" alt="Instagram"></a>
+                <a href="https://www.linkedin.com/in/fabian-mascarin-0571411b7?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app"><img src="https://cdn-icons-png.flaticon.com/24/733/733561.png" alt="LinkedIn"></a>
+                <a href="https://wa.me/+573148882658"><img src="https://cdn-icons-png.flaticon.com/24/733/733585.png" alt="WhatsApp"></a>
+            </div>
+            <hr>
+            <div class="footer-text">© 2026 PCTINTAS Todos los derechos reservados.</div>
+            <div class="footer-text" style="font-size: 11px;">Este mensaje contiene información confidencial. Si no es el destinatario, por favor notifíquelo al remitente.</div>
+        </div>
+    </div>
+</body>
+</html>
