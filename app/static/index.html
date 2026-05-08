@@ -480,6 +480,9 @@
           cargarUsuarios();
           cargarEmpresaConfig();
         }
+        if(rol==='tecnico'){
+          document.getElementById('btnExport').style.display='inline-block';
+        }
         document.getElementById('appGarantias').style.display='block';
         cargarUsuariosSelect();
         cargarGarantias();
@@ -496,6 +499,9 @@
             document.getElementById('adminPanel').style.display='block';
             cargarUsuarios();
             cargarEmpresaConfig();
+          }
+          if(rol==='tecnico'){
+            document.getElementById('btnExport').style.display='inline-block';
           }
           document.getElementById('loginModal').style.display='none';
           document.getElementById('appGarantias').style.display='block';
@@ -540,7 +546,7 @@
 
       // export
       document.getElementById('btnExport').addEventListener('click', async ()=>{
-        const res = await api('/garantias/export'); if(!res.ok) return alert('Error al exportar');
+        const res = await api('/export/garantias'); if(!res.ok) return alert('Error al exportar');
         const blob = await res.blob(); const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href = url; a.download = 'garantias_export.xlsx'; document.body.appendChild(a); a.click(); a.remove();
       });
@@ -584,6 +590,8 @@
           return;
         }
         
+        const submitBtn = document.querySelector('#formGarantia button[type="submit"]');
+        submitBtn.disabled = true;
         const fd = new FormData();
         fd.append('cliente', document.getElementById('cliente').value);
         fd.append('cedula', document.getElementById('cedula').value);
@@ -600,6 +608,7 @@
         const file = document.getElementById('imagen').files[0]; if(file) fd.append('imagen', file);
         
         const res = await api('/garantias', {method:'POST', body: fd});
+        submitBtn.disabled = false;
         if(res.ok){
           const garantiaData = await res.json();
           alert('Guardado');

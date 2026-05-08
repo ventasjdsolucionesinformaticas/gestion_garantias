@@ -8,6 +8,8 @@ from models import Garantia, Comentario, Usuario, ConfiguracionEmpresa, now_colo
 from pydantic import BaseModel
 from typing import Optional
 from security import create_token, verify_token
+import pandas as pd
+import io
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 from sendemail import enviar_correo_garantia
@@ -44,7 +46,7 @@ def get_db():
 
 @app.get("/")
 def read_root():
-    return FileResponse("static/index.html", media_type="text/html")
+    return FileResponse(os.path.join(os.getcwd(), "static", "index.html"), media_type="text/html")
 
 class LoginIn(BaseModel):
     username: str
@@ -349,6 +351,17 @@ async def crear_garantia_api(
     # Si no se especifica usuario_asignado, asignar al usuario que crea la garantía
     asignado_a = usuario_asignado if usuario_asignado else username
     
+    # Evitar duplicados inmediatos de un mismo registro
+    posible_duplicado = db.query(Garantia).filter(
+        Garantia.cliente == cliente,
+        Garantia.cedula == cedula,
+        Garantia.telefono == telefono,
+        Garantia.descripcion_falla == descripcion_falla,
+        Garantia.fecha_compra == fecha_compra
+    ).order_by(Garantia.id.desc()).first()
+    if posible_duplicado and posible_duplicado.fecha_registro and (now_colombia() - posible_duplicado.fecha_registro).total_seconds() < 30:
+        raise HTTPException(status_code=409, detail="Posible garantía duplicada. Espere unos segundos antes de volver a intentar.")
+    
     nueva = Garantia(cliente=cliente, cedula=cedula, telefono=telefono, email=email, tipo_producto=tipo_producto, marca=marca, modelo=modelo, serial=serial, factura=factura, fecha_compra=fecha_compra, descripcion_falla=descripcion_falla, imagen_path=imagen_path, usuario_asignado=asignado_a, estado="Recibido")
     db.add(nueva)
     db.commit()
@@ -489,21 +502,22 @@ def buscar_clientes(q: str = "", token: str = Header(None), db: Session = Depend
     return out
 
 # export to excel (admin only)
-@app.get("/api/garantias/export")
+@app.get("/api/export/garantias")
 def export_garantias(token: str = Header(None), db: Session = Depends(get_db)):
     user = verify_token(token)
     u = db.query(Usuario).filter(Usuario.username == user).first()
-    if not u or u.rol != "admin":
-        raise HTTPException(status_code=403, detail="Solo admin puede exportar")
-    import pandas as pd
+    if not u or u.rol not in ["admin", "tecnico"]:
+        raise HTTPException(status_code=403, detail="Solo admin o tecnico puede exportar")
     items = db.query(Garantia).order_by(Garantia.id.desc()).all()
     rows = []
     for g in items:
-        rows.append({"id": g.id, "cliente": g.cliente, "cedula": g.cedula, "telefono": g.telefono, "email": g.email, "tipo_producto": g.tipo_producto, "marca": g.marca, "modelo": g.modelo, "serial": g.serial, "factura": g.factura, "fecha_compra": g.fecha_compra, "descripcion_falla": g.descripcion_falla, "estado": g.estado, "fecha_registro": g.fecha_registro.isoformat()})
+        rows.append({"id": g.id, "cliente": g.cliente, "cedula": g.cedula, "telefono": g.telefono, "email": g.email, "tipo_producto": g.tipo_producto, "marca": g.marca, "modelo": g.modelo, "serial": g.serial, "factura": g.factura, "fecha_compra": str(g.fecha_compra) if g.fecha_compra else "", "descripcion_falla": g.descripcion_falla, "estado": g.estado, "fecha_registro": g.fecha_registro.isoformat()})
     df = pd.DataFrame(rows)
-    out_path = os.path.join("data", f"garantias_export_{now_colombia().strftime('%Y%m%d%H%M%S')}.xlsx")
-    df.to_excel(out_path, index=False)
-    return FileResponse(out_path, filename=os.path.basename(out_path), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    buffer = io.BytesIO()
+    df.to_excel(buffer, index=False, engine='openpyxl')
+    buffer.seek(0)
+    filename = f"garantias_export_{now_colombia().strftime('%Y%m%d%H%M%S')}.xlsx"
+    return StreamingResponse(buffer, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f"attachment; filename={filename}"})
 
 
 # EDITAR DATOS DE CLIENTE EN GARANTÍA (admin y técnico asignado)
@@ -606,7 +620,7 @@ def generar_recibo(gid: int, token: str = Header(None), db: Session = Depends(ge
         '{{hora}}': hora_registro,
         '{{cliente}}': garantia.cliente or '',
         '{{telefono_cliente}}': garantia.telefono or '',
-        '{{usuario}}': username or '',
+        '{{usuario}}': garantia.usuario_asignado or username or '',
         '{{estado}}': garantia.estado or 'Recibido',
         '{{producto}}': producto or 'Producto',
         '{{fallo}}': garantia.descripcion_falla or '',
