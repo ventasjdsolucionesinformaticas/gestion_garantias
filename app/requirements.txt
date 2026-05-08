@@ -9,4 +9,3 @@ python-jose[cryptography]
 pandas
 openpyxl
 PyJWT
-reportlab

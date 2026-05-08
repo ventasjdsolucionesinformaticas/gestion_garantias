@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime, timezone, timedelta
@@ -27,6 +27,7 @@ class Garantia(Base):
     imagen_path = Column(String, nullable=True)
     estado = Column(String, default="Recibido")
     usuario_asignado = Column(String, nullable=True, index=True)
+    valor_cobrado = Column(Float, nullable=True)
     fecha_registro = Column(DateTime, default=now_colombia)
     comentarios = relationship("Comentario", back_populates="garantia", cascade="all, delete-orphan")
 
