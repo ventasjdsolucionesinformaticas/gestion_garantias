@@ -4,10 +4,10 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 # Configuración SMTP
-smtp_server = 'smtp.gmail.com'
+smtp_server = 'smtppro.zoho.com'
 smtp_port = 587
 email_address = 'soporte@pctintas.com'
-password = 'dzva txty gyjj wtgv'  # Tu contraseña de aplicación
+password = 'q7sU2re0Qr84'  # Tu contraseña de aplicación
 
 def enviar_correo_garantia(datos_orden):
     """
