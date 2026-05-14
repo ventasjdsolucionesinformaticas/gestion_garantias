@@ -7,7 +7,7 @@ from email.mime.text import MIMEText
 smtp_server = 'smtppro.zoho.com'
 smtp_port = 587
 email_address = 'soporte@pctintas.com'
-password = 'q7sU2re0Qr84'  # Tu contraseña de aplicación
+password = 'XXXXX'  # Tu contraseña de aplicación
 
 def enviar_correo_garantia(datos_orden):
     """
